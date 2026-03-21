@@ -18,3 +18,14 @@
 - impact_scope: `backend/backend.py`, `db/seed/persistent/`, frontend session-aware room loading, `.env.dev.example`, `README.md`, and future room-image persistence and retrieval behavior
 - status: active
 - last_updated: 2026-03-21T16:33:00+01:00
+
+## Decision 260321-003
+- decision_id: 260321-003
+- timestamp: 2026-03-21T18:27:41+01:00
+- requested_by: human
+- recorded_by: agent
+- decision: Move the committed SQLite schema and persistent room seed assets out of `db/` and into `backend/` so the backend becomes the single deployable unit and owns its own bootstrap data for Railway deployments.
+- rationale: The human explicitly chose a cleaner deployment architecture where `backend/` can be deployed directly without depending on repo-root asset paths, while `db/` remains limited to runtime SQLite state and maintenance utilities instead of holding committed bootstrap inputs.
+- impact_scope: `backend/backend.py`, `backend/schema.sql`, `backend/seed/persistent/`, `README.md`, `.env.dev.example`, Railway deployment behavior, and the remaining role of `db/`
+- status: supersedes_previous
+- supersedes: 260321-002

@@ -8,7 +8,7 @@
 ## Dependencies
 - Backend dependencies are defined only in `backend/requirements.txt`.
 - Frontend dependencies are defined only in `frontend/package.json`.
-- The first room-state database schema lives in `db/schema.sql`.
+- The first room-state database schema lives in `backend/schema.sql`.
 - Production backend serving uses Gunicorn.
 
 ## Install
@@ -19,7 +19,7 @@
 - Start both backend and frontend with `./startDevFrontAndBackend.sh`.
 - The script reads `.env.dev`, then launches Flask and Vite on the configured hosts/ports.
 - The backend will auto-create the local SQLite database at `db/hotel_db.sqlite3` unless `ROOM_DB_PATH` is set.
-- Persistent room bootstrap data comes from `db/seed/persistent/manifest.json` unless `PERSISTENT_ROOM_SEED_MANIFEST_PATH` is set.
+- Persistent room bootstrap data comes from `backend/seed/persistent/manifest.json` unless `PERSISTENT_ROOM_SEED_MANIFEST_PATH` is set.
 - Set `VITE_BACKEND_URL` in `.env.dev` if you want an explicit frontend override for the backend API. When it is left empty during local development, the frontend now falls back to the same `BACKEND_HOST` and `BACKEND_PORT` values used by `startDevFrontAndBackend.sh`.
 - The backend now uses an anonymous session cookie so each visitor gets an isolated room-state timeline, while each room can have a shared persistent base state visible across all sessions.
 
@@ -32,7 +32,7 @@
 
 ## Production Notes
 - Railway can provide the backend port via `PORT`; the backend also still accepts `BACKEND_PORT` for local development.
-- Use Gunicorn in production instead of the Flask development server. Example: `gunicorn --chdir backend --bind 0.0.0.0:$PORT backend:app`
+- When deploying the backend service from `backend/` as the Railway root directory, use Gunicorn in production instead of the Flask development server. Example: `gunicorn --bind 0.0.0.0:$PORT backend:app`
 - When serving the frontend with `vite preview`, host allowlisting is now open in preview mode so generated Railway domains do not need to be hard-coded.
 
 ## Room State Database
@@ -42,11 +42,12 @@
 - `state_timestamp` records when that state existed.
 - `previous_state_id` links a derived room state back to its earlier snapshot.
 - The earliest state for a room can use `session_id = persistent` to act as the shared base state that every session sees first.
-- Persistent room definitions live in `db/seed/persistent/manifest.json`, and the committed images it references are the source of truth for required base states.
-- The current start-screen lobby image is seeded into `room_table` from `db/seed/persistent/images/lobby.png` as the shared persistent first `lobby` entry.
+- Persistent room definitions live in `backend/seed/persistent/manifest.json`, and the committed images it references are the source of truth for required base states.
+- The current start-screen lobby image is seeded into `room_table` from `backend/seed/persistent/images/lobby.png` as the shared persistent first `lobby` entry.
 - The start screen opening theme is served by the backend from `backend/static/audio/Secrets_of_the_Grand_Pannonia_2026-03-21T133239.mp3` at `GET /audio/opening-theme`.
 - Session-specific room states can build on top of the persistent base for that room without affecting other visitors.
 - `db/hotel_db.sqlite3` is runtime state only and should not be treated as the canonical source for required persistent rooms.
+- `db/` is now for runtime SQLite state and utilities; committed schema and persistent seed assets are owned by `backend/`.
 - To delete all runtime rows while keeping the schema, run `python db/clear_hotel_db.py --yes`.
 - If you want to target a different SQLite file, use `python db/clear_hotel_db.py --database /path/to/file.sqlite3 --yes`.
 - After clearing the database, restart the backend if you want the persistent room seed data to be created again.

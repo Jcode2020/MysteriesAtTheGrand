@@ -12,13 +12,12 @@ from typing import Any
 
 from flask import Flask, Response, g, jsonify, request, send_file
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-DEFAULT_DATABASE_PATH = BASE_DIR / "db" / "hotel_db.sqlite3"
-SCHEMA_PATH = BASE_DIR / "db" / "schema.sql"
-DEFAULT_PERSISTENT_ROOM_SEED_MANIFEST_PATH = BASE_DIR / "db" / "seed" / "persistent" / "manifest.json"
-DEFAULT_OPENING_AUDIO_PATH = (
-    BASE_DIR / "backend" / "static" / "audio" / "Secrets_of_the_Grand_Pannonia_2026-03-21T133239.mp3"
-)
+BACKEND_DIR = Path(__file__).resolve().parent
+REPO_ROOT_DIR = BACKEND_DIR.parent
+DEFAULT_DATABASE_PATH = REPO_ROOT_DIR / "db" / "hotel_db.sqlite3"
+DEFAULT_SCHEMA_PATH = BACKEND_DIR / "schema.sql"
+DEFAULT_PERSISTENT_ROOM_SEED_MANIFEST_PATH = BACKEND_DIR / "seed" / "persistent" / "manifest.json"
+DEFAULT_OPENING_AUDIO_PATH = BACKEND_DIR / "static" / "audio" / "Secrets_of_the_Grand_Pannonia_2026-03-21T133239.mp3"
 SESSION_COOKIE_NAME = "grand_pannonia_session_id"
 LEGACY_SESSION_ID = "legacy-default-session"
 PERSISTENT_SESSION_ID = "persistent"
@@ -57,6 +56,18 @@ def _get_db_connection(database_path: Path) -> sqlite3.Connection:
     return connection
 
 
+def _resolve_schema_path(schema_path: str | Path | None = None) -> Path:
+    """Resolve the SQLite schema path from an override, env var, or backend default."""
+    if schema_path is not None:
+        return Path(schema_path).expanduser().resolve()
+
+    configured_schema_path = os.getenv("ROOM_SCHEMA_PATH")
+    if configured_schema_path:
+        return Path(configured_schema_path).expanduser().resolve()
+
+    return DEFAULT_SCHEMA_PATH.resolve()
+
+
 def _resolve_seed_manifest_path(seed_manifest_path: str | Path | None = None) -> Path:
     """Resolve the persistent room seed manifest path."""
     if seed_manifest_path is not None:
@@ -66,7 +77,7 @@ def _resolve_seed_manifest_path(seed_manifest_path: str | Path | None = None) ->
     if configured_manifest_path:
         return Path(configured_manifest_path).expanduser().resolve()
 
-    return DEFAULT_PERSISTENT_ROOM_SEED_MANIFEST_PATH
+    return DEFAULT_PERSISTENT_ROOM_SEED_MANIFEST_PATH.resolve()
 
 
 def _resolve_opening_audio_path(opening_audio_path: str | Path | None = None) -> Path:
@@ -78,16 +89,13 @@ def _resolve_opening_audio_path(opening_audio_path: str | Path | None = None) ->
     if configured_audio_path:
         return Path(configured_audio_path).expanduser().resolve()
 
-    return DEFAULT_OPENING_AUDIO_PATH
+    return DEFAULT_OPENING_AUDIO_PATH.resolve()
 
 
-def _initialize_database(database_path: Path) -> None:
+def _initialize_database(database_path: Path, schema_path: Path) -> None:
     """Create the SQLite database and `room_table` schema if missing."""
-    if not SCHEMA_PATH.exists():
-        raise FileNotFoundError(f"Schema file not found: {SCHEMA_PATH}")
-
     database_path.parent.mkdir(parents=True, exist_ok=True)
-    schema_sql = SCHEMA_PATH.read_text(encoding="utf-8")
+    schema_sql = schema_path.read_text(encoding="utf-8")
 
     with _get_db_connection(database_path) as connection:
         connection.executescript(schema_sql)
@@ -464,6 +472,7 @@ def _room_query(room_name: str, latest_only: bool) -> tuple[str, tuple[Any, ...]
 
 def create_app(
     database_path: str | Path | None = None,
+    schema_path: str | Path | None = None,
     seed_manifest_path: str | Path | None = None,
     opening_audio_path: str | Path | None = None,
 ) -> Flask:
@@ -472,10 +481,12 @@ def create_app(
 
     app = Flask(__name__)
     resolved_database_path = _resolve_database_path(database_path)
+    resolved_schema_path = _resolve_schema_path(schema_path)
     resolved_seed_manifest_path = _resolve_seed_manifest_path(seed_manifest_path)
     resolved_opening_audio_path = _resolve_opening_audio_path(opening_audio_path)
     seed_entries = _load_persistent_room_seed_entries(resolved_seed_manifest_path)
     app.config["DATABASE_PATH"] = resolved_database_path
+    app.config["SCHEMA_PATH"] = resolved_schema_path
     app.config["FRONTEND_ORIGIN"] = _resolve_frontend_origin()
     app.config["OPENING_AUDIO_PATH"] = resolved_opening_audio_path
     app.config["SESSION_COOKIE_SECURE"] = _resolve_session_cookie_secure()
@@ -485,7 +496,7 @@ def create_app(
     if app.config["SESSION_COOKIE_SAMESITE"] == "None" and not app.config["SESSION_COOKIE_SECURE"]:
         raise ValueError("SESSION_COOKIE_SAMESITE=None requires SESSION_COOKIE_SECURE=true")
 
-    _initialize_database(resolved_database_path)
+    _initialize_database(resolved_database_path, resolved_schema_path)
     _seed_persistent_room_states(resolved_database_path, seed_entries)
 
     @app.after_request

@@ -18,7 +18,7 @@ At first the visions came like fever: torchlight reflected in wet streets, banne
 
 Her terror did not come only from what she saw. It came from what she began to understand. If the object was real, then it was not simply a curiosity of myth. It was a thing that ambitious states, occult cranks, collectors, intelligence services, and ideologues would all kill to possess for their own reasons. And if the men now rising in Germany ever laid hands on it, Andrea could no longer tell herself that the future in her dreams would unfold without help.
 
-On 25 January 1933, she packed her field notebooks, sealed the Tablet inside an unremarkable document case, and boarded the Orient Express. Her intention was practical, humiliating, and necessary. She would go by way of Berlin only long enough to move onward to London, where she meant to place the artifact beyond German reach, even if that meant surrendering the greatest discovery of her life to academic competitors she despised. Pride had become a luxury she could no longer afford.
+On 25 January 1933, she packed her field notebooks, sealed the Tablet inside an unremarkable document case, and boarded the Orient Express. Her intention was practical, humiliating, and necessary. She would go by way of Berlin only long enough to move onward to Paris, where she meant to place the artifact beyond German reach, even if that meant surrendering the greatest discovery of her life to academic competitors she despised. Pride had become a luxury she could no longer afford.
 
 From the beginning of the journey, she suspected she was being watched. A man lingered too long in the corridor outside her compartment. Another seemed to appear at successive stops with no clear reason to travel. A woman in the dining car asked too many casual questions about archaeology, then pretended not to understand the answers. Andrea changed seats, routes through the train, and meal times, but the feeling persisted. Somewhere between stations, she accepted what she had resisted admitting: if others knew enough to follow her, Berlin was already compromised.
 
@@ -26,7 +26,7 @@ Then, on 30 January, the news reached the train. Adolf Hitler had been appointed
 
 With that, Berlin ceased to be a waypoint and became a trap.
 
-Andrea left the train in Budapest and took a room at the Grand Pannonia Hotel under the pretense of revising her route to Vienna. The hotel, with its polished wood, brass fittings, discreet staff, and cultivated anonymity, offered exactly what she needed: a place where movement could be hidden inside elegance. She stayed only one night, but during that night she made the decision that defined everything that followed.
+Andrea left the train in Budapest and took a room at the Grand Pannonia Hotel under the pretense of revising her onward route to Paris. The hotel, with its polished wood, brass fittings, discreet staff, and cultivated anonymity, offered exactly what she needed: a place where movement could be hidden inside elegance. She stayed only one night, but during that night she made the decision that defined everything that followed.
 
 She concluded that she could no longer outrun the pursuit while carrying the Tablet. Any onward luggage inspection, room search, theft, or arrest would end the matter. So she transformed Budapest into a dead end.
 

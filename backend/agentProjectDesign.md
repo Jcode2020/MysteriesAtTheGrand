@@ -1,14 +1,5 @@
 # Project Design
 
-## Canonical Source
-
-The canonical runtime design guidance now lives in:
-
-- `backend/agentProjectDesign.md`
-- `backend/moodboards/_merge_final.html`
-
-This file remains as the required bridge document for workspace agent rules. When design guidance here and the backend copy differ, follow the backend copy.
-
 ## Design North Star
 The interface should feel like stepping into a historic Grand Hotel between 1880 and 1914:
 
@@ -17,13 +8,13 @@ The interface should feel like stepping into a historic Grand Hotel between 1880
 - elegant and legible for casual players
 - atmospheric without becoming cluttered or theatrical
 
-The default visual direction for this project is **the dossier-luxury hybrid defined in `backend/moodboards/_merge_final.html`**.
+The default visual direction for this project is **the dossier-luxury hybrid defined in `moodboards/_merge_final.html`**.
 
-Reference boards live in `backend/moodboards/`:
+Reference boards live in `moodboards/`:
 
-- `backend/moodboards/_merge_final.html`
+- `moodboards/_merge_final.html`
 
-Unless a human explicitly chooses another direction, design decisions should follow `backend/moodboards/_merge_final.html`.
+Unless a human explicitly chooses another direction, design decisions should follow `moodboards/_merge_final.html`.
 
 ## Visual Tone
 Think palace hotel dossier, not tech product:

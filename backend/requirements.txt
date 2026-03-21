@@ -1,2 +1,4 @@
 Flask==3.1.2
+crewai[openai]==1.11.0
 gunicorn==25.1.0
+openai==2.29.0

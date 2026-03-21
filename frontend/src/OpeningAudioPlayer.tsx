@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef } from "react";
 
 type OpeningAudioPlayerProps = {
-  audioUrl: string;
+  audioUrl: string | null;
   isMuted: boolean;
 };
 
@@ -22,7 +22,7 @@ function OpeningAudioPlayer({ audioUrl, isMuted }: OpeningAudioPlayerProps) {
 
   useEffect(() => {
     const audioElement = audioRef.current;
-    if (audioElement === null) {
+    if (audioElement === null || !audioUrl) {
       return;
     }
 
@@ -51,6 +51,10 @@ function OpeningAudioPlayer({ audioUrl, isMuted }: OpeningAudioPlayerProps) {
       window.removeEventListener("keydown", resumeAudioFromFirstInteraction);
     };
   }, [attemptPlayback]);
+
+  if (!audioUrl) {
+    return null;
+  }
 
   return (
     <audio

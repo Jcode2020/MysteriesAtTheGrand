@@ -1,21 +1,21 @@
 import React from "react";
 
-import bookImage from "./assets/inventory/book.png";
-import cashImage from "./assets/inventory/cash.png";
-import contractImage from "./assets/inventory/contract.png";
-import penImage from "./assets/inventory/pen.png";
-import scarfImage from "./assets/inventory/scarf.png";
-import teddyImage from "./assets/inventory/teddy.png";
-import watchImage from "./assets/inventory/watch.png";
-
 type GameShellProps = {
   backgroundImageUrl: string | null;
   isLoadingImage: boolean;
+  roomName: string;
+  inventoryItems: InventoryItem[];
+  chatMessages: ChatMessage[];
+  chatDraft: string;
+  chatError: string | null;
+  isStreamingChat: boolean;
   isInventoryOpen: boolean;
   isChatOpen: boolean;
   isResetModalOpen: boolean;
   isResetting: boolean;
   resetError: string | null;
+  onChatDraftChange: (nextDraft: string) => void;
+  onSendChatMessage: (message: string) => void;
   onToggleInventory: () => void;
   onToggleChat: () => void;
   onOpenResetModal: () => void;
@@ -23,21 +23,19 @@ type GameShellProps = {
   onConfirmReset: () => void;
 };
 
-type MockInventoryItem = {
+type InventoryItem = {
+  id: number;
   detail: string;
   imageSrc: string;
+  itemKey: string;
   name: string;
 };
 
-const INVENTORY_ITEMS: MockInventoryItem[] = [
-  { name: "Pen", imageSrc: penImage, detail: "Reception Desk" },
-  { name: "Book", imageSrc: bookImage, detail: "Guest Library" },
-  { name: "Contract", imageSrc: contractImage, detail: "Signed Copy" },
-  { name: "Cash", imageSrc: cashImage, detail: "Tucked Away" },
-  { name: "Teddy", imageSrc: teddyImage, detail: "Nursery Find" },
-  { name: "Watch", imageSrc: watchImage, detail: "Pocket Piece" },
-  { name: "Scarf", imageSrc: scarfImage, detail: "Velvet Clue" },
-];
+type ChatMessage = {
+  id: string;
+  role: "assistant" | "user";
+  content: string;
+};
 
 function SuitcaseIcon() {
   return (
@@ -126,24 +124,38 @@ function ResetIcon() {
   );
 }
 
-type InventoryIconProps = {
-  kind: MockInventoryItem["icon"];
-};
+function formatRoomName(roomName: string): string {
+  return roomName
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
 
 function GameShell({
   backgroundImageUrl,
   isLoadingImage,
+  roomName,
+  inventoryItems,
+  chatMessages,
+  chatDraft,
+  chatError,
+  isStreamingChat,
   isInventoryOpen,
   isChatOpen,
   isResetModalOpen,
   isResetting,
   resetError,
+  onChatDraftChange,
+  onSendChatMessage,
   onToggleInventory,
   onToggleChat,
   onOpenResetModal,
   onCloseResetModal,
   onConfirmReset,
 }: GameShellProps) {
+  const formattedRoomName = formatRoomName(roomName);
+  const lastAssistantMessage = [...chatMessages].reverse().find((message) => message.role === "assistant");
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#120d0a] text-parchment">
       {backgroundImageUrl ? (
@@ -212,29 +224,36 @@ function GameShell({
           </div>
 
           <div className="mt-6 grid grid-cols-3 gap-3">
-            {INVENTORY_ITEMS.map((item) => (
-              <article
-                key={item.name}
-                className="group relative aspect-square rounded-[20px] border border-[rgba(45,29,22,0.12)] bg-[linear-gradient(180deg,rgba(243,234,223,0.98)_0%,rgba(233,216,192,0.92)_100%)] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]"
-              >
-                <div className="pointer-events-none absolute -top-4 left-1/2 z-20 w-[13rem] max-w-[13rem] -translate-x-1/2 -translate-y-full rounded-[22px] border border-[rgba(45,29,22,0.12)] bg-[linear-gradient(180deg,rgba(252,246,238,0.98)_0%,rgba(233,216,192,0.95)_100%)] p-3 opacity-0 shadow-[0_20px_40px_rgba(0,0,0,0.22)] transition duration-200 group-hover:opacity-100">
-                  <div className="overflow-hidden rounded-[16px] border border-[rgba(45,29,22,0.08)]">
-                    <img className="h-32 w-full object-cover object-center" src={item.imageSrc} alt="" aria-hidden="true" />
+            {inventoryItems.length > 0 ? (
+              inventoryItems.map((item) => (
+                <article
+                  key={item.id}
+                  className="group relative aspect-square rounded-[20px] border border-[rgba(45,29,22,0.12)] bg-[linear-gradient(180deg,rgba(243,234,223,0.98)_0%,rgba(233,216,192,0.92)_100%)] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]"
+                >
+                  <div className="pointer-events-none absolute -top-4 left-1/2 z-20 w-[13rem] max-w-[13rem] -translate-x-1/2 -translate-y-full rounded-[22px] border border-[rgba(45,29,22,0.12)] bg-[linear-gradient(180deg,rgba(252,246,238,0.98)_0%,rgba(233,216,192,0.95)_100%)] p-3 opacity-0 shadow-[0_20px_40px_rgba(0,0,0,0.22)] transition duration-200 group-hover:opacity-100">
+                    <div className="overflow-hidden rounded-[16px] border border-[rgba(45,29,22,0.08)]">
+                      <img className="h-32 w-full object-cover object-center" src={item.imageSrc} alt="" aria-hidden="true" />
+                    </div>
+                    <div className="mt-3 text-center">
+                      <p className="text-[10px] uppercase tracking-[0.24em] text-[#8a5b24]">{item.detail}</p>
+                      <p className="mt-2 text-sm uppercase tracking-[0.18em] text-[#2d1d16]">{item.name}</p>
+                    </div>
                   </div>
-                  <div className="mt-3 text-center">
-                    <p className="text-[10px] uppercase tracking-[0.24em] text-[#8a5b24]">{item.detail}</p>
-                    <p className="mt-2 text-sm uppercase tracking-[0.18em] text-[#2d1d16]">{item.name}</p>
+                  <div className="relative h-full overflow-hidden rounded-[16px] border border-[rgba(45,29,22,0.08)] bg-[rgba(252,246,238,0.42)]">
+                    <img
+                      className="h-full w-full object-cover object-center transition duration-300 group-hover:scale-[1.03]"
+                      src={item.imageSrc}
+                      alt={item.name}
+                    />
                   </div>
-                </div>
-                <div className="relative h-full overflow-hidden rounded-[16px] border border-[rgba(45,29,22,0.08)] bg-[rgba(252,246,238,0.42)]">
-                  <img
-                    className="h-full w-full object-cover object-center transition duration-300 group-hover:scale-[1.03]"
-                    src={item.imageSrc}
-                    alt={item.name}
-                  />
-                </div>
-              </article>
-            ))}
+                </article>
+              ))
+            ) : (
+              <div className="col-span-3 rounded-[22px] border border-dashed border-[rgba(45,29,22,0.14)] bg-[rgba(252,246,238,0.5)] px-4 py-8 text-center">
+                <p className="text-[11px] uppercase tracking-[0.24em] text-[#8a5b24]">Suitcase Empty</p>
+                <p className="mt-3 text-sm leading-7 text-[#4a352c]">No travel effects are currently stored in this session.</p>
+              </div>
+            )}
           </div>
         </aside>
       ) : null}
@@ -258,19 +277,66 @@ function GameShell({
             </div>
           </div>
 
-          <div className="mt-6 flex-1 rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(243,234,223,0.1)_0%,rgba(243,234,223,0.04)_100%)] p-5">
+          <div className="mt-6 flex-1 overflow-hidden rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(243,234,223,0.1)_0%,rgba(243,234,223,0.04)_100%)] p-5">
             <p className="text-[11px] uppercase tracking-[0.28em] text-white/50">Front Office</p>
-            <div className="mt-4 rounded-[20px] border border-[#b08a3e]/20 bg-[rgba(243,234,223,0.08)] p-4">
-              <p className="text-sm leading-7 text-[#fcf6ee]">
-                Welcome to Great Pannonia Hotel! You interact with the world via chat, so please tell me
-                what you would like to do
-              </p>
+            <div className="mt-4 flex h-full max-h-[calc(100%-2.25rem)] flex-col gap-3 overflow-y-auto pr-1">
+              {chatMessages.map((message) => (
+                <article
+                  key={message.id}
+                  className={
+                    message.role === "user"
+                      ? "ml-10 rounded-[20px] border border-[#b08a3e]/24 bg-[rgba(176,138,62,0.14)] px-4 py-3 text-sm leading-7 text-[#fcf6ee]"
+                      : "mr-10 rounded-[20px] border border-white/10 bg-[rgba(243,234,223,0.08)] px-4 py-3 text-sm leading-7 text-[#fcf6ee]"
+                  }
+                >
+                  <p className="text-[10px] uppercase tracking-[0.22em] text-white/45">
+                    {message.role === "user" ? "Guest" : "Concierge"}
+                  </p>
+                  <p className="mt-2 whitespace-pre-wrap">
+                    {message.content || (isStreamingChat && lastAssistantMessage?.id === message.id ? "..." : "")}
+                  </p>
+                </article>
+              ))}
             </div>
           </div>
 
-          <div className="mt-4 rounded-[20px] border border-dashed border-white/12 bg-black/10 px-4 py-3 text-[12px] uppercase tracking-[0.18em] text-white/48">
-            Chat input will arrive with the backend connection.
-          </div>
+          {chatError ? (
+            <div className="mt-4 rounded-[18px] border border-[#6f2430]/28 bg-[rgba(111,36,48,0.12)] px-4 py-3 text-sm leading-6 text-[#f7d6da]">
+              {chatError}
+            </div>
+          ) : null}
+
+          <form
+            className="mt-4 rounded-[20px] border border-white/10 bg-black/10 p-3"
+            onSubmit={(event) => {
+              event.preventDefault();
+              onSendChatMessage(chatDraft);
+            }}
+          >
+            <label className="sr-only" htmlFor="chat-composer">
+              Message the concierge
+            </label>
+            <textarea
+              id="chat-composer"
+              className="min-h-[5.5rem] w-full resize-none rounded-[16px] border border-white/10 bg-[rgba(252,246,238,0.06)] px-4 py-3 text-sm leading-6 text-[#fcf6ee] outline-none placeholder:text-white/35 focus:border-[#b08a3e]/45"
+              placeholder="Ask a question or tell the concierge what you want to do..."
+              value={chatDraft}
+              onChange={(event) => onChatDraftChange(event.target.value)}
+              disabled={isStreamingChat}
+            />
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <p className="text-[11px] uppercase tracking-[0.2em] text-white/42">
+                {isStreamingChat ? "Receiving reply..." : "Short messages work best"}
+              </p>
+              <button
+                type="submit"
+                className="rounded-full border border-[#b08a3e]/24 bg-[linear-gradient(180deg,rgba(111,36,48,0.96)_0%,rgba(79,23,34,0.98)_100%)] px-4 py-2 text-[11px] uppercase tracking-[0.24em] text-[#fcf6ee] transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-55"
+                disabled={isStreamingChat || chatDraft.trim().length === 0}
+              >
+                Send
+              </button>
+            </div>
+          </form>
         </aside>
       ) : null}
 
@@ -279,16 +345,21 @@ function GameShell({
           <img
             className="h-[calc(100vh-4rem)] min-h-[36rem] w-full object-cover object-center"
             src={backgroundImageUrl}
-            alt="Grand hotel lobby with warm chandelier light, marble floors, and a sweeping staircase."
+            alt={`Current view of the ${formattedRoomName}.`}
           />
         ) : (
           <div className="flex h-[calc(100vh-4rem)] min-h-[36rem] w-full items-center justify-center bg-[radial-gradient(circle_at_top,rgba(176,138,62,0.18),transparent_32%),linear-gradient(180deg,#281b15_0%,#120d0a_100%)]">
             <p className="text-sm uppercase tracking-[0.28em] text-white/60">
-              {isLoadingImage ? "Preparing the lobby..." : "Lobby image unavailable"}
+              {isLoadingImage ? `Preparing ${formattedRoomName}...` : `${formattedRoomName} image unavailable`}
             </p>
           </div>
         )}
       </section>
+
+      <div className="pointer-events-none absolute left-1/2 top-8 z-30 -translate-x-1/2 rounded-full border border-[#b08a3e]/28 bg-[rgba(28,18,14,0.66)] px-5 py-3 text-center shadow-[0_18px_42px_rgba(0,0,0,0.24)] backdrop-blur-md">
+        <p className="text-[11px] uppercase tracking-[0.26em] text-[#e9d8c0]">Current Room</p>
+        <p className="mt-2 font-display text-2xl leading-none text-[#fcf6ee]">{formattedRoomName}</p>
+      </div>
 
       <button
         type="button"

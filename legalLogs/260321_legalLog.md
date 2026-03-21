@@ -29,3 +29,13 @@
 - impact_scope: `backend/backend.py`, `backend/schema.sql`, `backend/seed/persistent/`, `README.md`, `.env.dev.example`, Railway deployment behavior, and the remaining role of `db/`
 - status: supersedes_previous
 - supersedes: 260321-002
+
+## Decision 260321-004
+- decision_id: 260321-004
+- timestamp: 2026-03-21T21:43:53+01:00
+- requested_by: human
+- recorded_by: agent
+- decision: Add a session-scoped CrewAI/OpenAI chat architecture with backend-owned inventory seeding, separate session-state and conversation-pointer tables, room descriptions as the primary room-truth layer with image checks as fallback, backend-canonical AI design assets and moodboards, and a plain-language prototype privacy/consent notice that must be accepted before starting the experience in a session.
+- rationale: The human chose a more complete interactive architecture so the browser chat can safely coordinate room changes and inventory actions without duplicating state in the frontend, wanted OpenAI-hosted conversation state pointers instead of storing full transcripts locally, wanted backend-owned prompt assets for deployment, and explicitly wanted a simple prototype warning that normal users can understand before they begin.
+- impact_scope: `backend/` runtime architecture, `frontend/` start and chat flow, SQLite schema and seed behavior, OpenAI/CrewAI integration, canonical AI prompt asset ownership, and prototype privacy messaging
+- status: active

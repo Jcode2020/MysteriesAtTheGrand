@@ -1,16 +1,24 @@
-import base64
-import binascii
-import json
 import logging
-import mimetypes
 import os
-import sqlite3
 import uuid
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from flask import Flask, Response, g, jsonify, request, send_file
+
+from db_handlers import (
+    ensure_session_bootstrap,
+    get_latest_room_state as fetch_latest_room_state,
+    get_session_state,
+    initialize_database,
+    list_inventory_items,
+    list_room_states as fetch_room_states,
+    load_seed_manifest,
+    reset_session_progress as clear_session_progress,
+    seed_persistent_room_states,
+    validate_room_state_payload,
+    create_room_state as insert_room_state,
+)
 
 BACKEND_DIR = Path(__file__).resolve().parent
 REPO_ROOT_DIR = BACKEND_DIR.parent
@@ -18,9 +26,8 @@ DEFAULT_DATABASE_PATH = REPO_ROOT_DIR / "db" / "hotel_db.sqlite3"
 DEFAULT_SCHEMA_PATH = BACKEND_DIR / "schema.sql"
 DEFAULT_PERSISTENT_ROOM_SEED_MANIFEST_PATH = BACKEND_DIR / "seed" / "persistent" / "manifest.json"
 DEFAULT_OPENING_AUDIO_PATH = BACKEND_DIR / "static" / "audio" / "Secrets_of_the_Grand_Pannonia_2026-03-21T133239.mp3"
+DEFAULT_PRIVACY_NOTICE_PATH = BACKEND_DIR / "legal" / "privacy-notice.md"
 SESSION_COOKIE_NAME = "grand_pannonia_session_id"
-LEGACY_SESSION_ID = "legacy-default-session"
-PERSISTENT_SESSION_ID = "persistent"
 
 logger = logging.getLogger(__name__)
 
@@ -46,14 +53,6 @@ def _resolve_database_path(database_path: str | Path | None = None) -> Path:
         return Path(room_db_path).expanduser().resolve()
 
     return DEFAULT_DATABASE_PATH
-
-
-def _get_db_connection(database_path: Path) -> sqlite3.Connection:
-    """Open a SQLite connection with row access by column name."""
-    connection = sqlite3.connect(database_path)
-    connection.row_factory = sqlite3.Row
-    connection.execute("PRAGMA foreign_keys = ON;")
-    return connection
 
 
 def _resolve_schema_path(schema_path: str | Path | None = None) -> Path:
@@ -92,184 +91,11 @@ def _resolve_opening_audio_path(opening_audio_path: str | Path | None = None) ->
     return DEFAULT_OPENING_AUDIO_PATH.resolve()
 
 
-def _initialize_database(database_path: Path, schema_path: Path) -> None:
-    """Create the SQLite database and `room_table` schema if missing."""
-    database_path.parent.mkdir(parents=True, exist_ok=True)
-    schema_sql = schema_path.read_text(encoding="utf-8")
-
-    with _get_db_connection(database_path) as connection:
-        connection.executescript(schema_sql)
-        _migrate_room_table_for_sessions(connection)
-
-    logger.info("Initialized room state database at %s", database_path)
-
-
-def _migrate_room_table_for_sessions(connection: sqlite3.Connection) -> None:
-    """Backfill older SQLite databases that predate session-scoped room state."""
-    column_rows = connection.execute("PRAGMA table_info(room_table)").fetchall()
-    existing_columns = {row["name"] for row in column_rows}
-
-    if "session_id" not in existing_columns:
-        connection.execute("ALTER TABLE room_table ADD COLUMN session_id TEXT")
-        connection.execute(
-            "UPDATE room_table SET session_id = ? WHERE session_id IS NULL",
-            (LEGACY_SESSION_ID,),
-        )
-        connection.execute(
-            """
-            CREATE INDEX IF NOT EXISTS idx_room_table_session_id_room_name_state_timestamp
-            ON room_table (session_id, room_name, state_timestamp)
-            """
-        )
-
-    connection.execute(
-        "UPDATE room_table SET session_id = ? WHERE session_id IS NULL OR TRIM(session_id) = ''",
-        (LEGACY_SESSION_ID,),
-    )
-    room_names = [
-        row["room_name"]
-        for row in connection.execute("SELECT DISTINCT room_name FROM room_table").fetchall()
-    ]
-    for room_name in room_names:
-        persistent_row = connection.execute(
-            "SELECT id FROM room_table WHERE room_name = ? AND session_id = ? LIMIT 1",
-            (room_name, PERSISTENT_SESSION_ID),
-        ).fetchone()
-        if persistent_row is not None:
-            continue
-
-        connection.execute(
-            """
-            UPDATE room_table
-            SET session_id = ?
-            WHERE id = (
-                SELECT id
-                FROM room_table
-                WHERE room_name = ?
-                ORDER BY state_timestamp ASC, id ASC
-                LIMIT 1
-            )
-            """,
-            (PERSISTENT_SESSION_ID, room_name),
-        )
-
-
-def _guess_image_media_type(image_path: Path) -> str:
-    """Infer the MIME type from the seeded asset path."""
-    guessed_type, _ = mimetypes.guess_type(image_path.name)
-    if guessed_type is None or not guessed_type.startswith("image/"):
-        return "image/png"
-
-    return guessed_type
-
-
-def _normalize_persistent_seed_entry(entry: dict[str, Any], manifest_path: Path) -> dict[str, Any]:
-    """Validate one manifest entry and resolve its image path."""
-    room_name = entry.get("room_name")
-    if not isinstance(room_name, str) or not room_name.strip():
-        raise ValueError("Each persistent room seed must include a non-empty room_name.")
-
-    image_path_value = entry.get("image_path")
-    if not isinstance(image_path_value, str) or not image_path_value.strip():
-        raise ValueError(f"Persistent room seed '{room_name}' must include a non-empty image_path.")
-
-    image_path = Path(image_path_value)
-    if not image_path.is_absolute():
-        image_path = (manifest_path.parent / image_path).resolve()
-    else:
-        image_path = image_path.resolve()
-
-    if not image_path.exists():
-        raise FileNotFoundError(f"Persistent room seed image not found: {image_path}")
-
-    image_media_type = entry.get("image_media_type")
-    if image_media_type is None:
-        image_media_type = _guess_image_media_type(image_path)
-    elif not isinstance(image_media_type, str) or not image_media_type.startswith("image/"):
-        raise ValueError(f"Persistent room seed '{room_name}' must use a valid image_media_type.")
-
-    room_modifications = entry.get("room_modifications")
-    if room_modifications is not None and not isinstance(room_modifications, str):
-        raise ValueError(f"Persistent room seed '{room_name}' must use a string room_modifications value.")
-
-    state_timestamp = entry.get("state_timestamp", _current_timestamp())
-    if not isinstance(state_timestamp, str) or not state_timestamp.strip():
-        raise ValueError(f"Persistent room seed '{room_name}' must use a non-empty state_timestamp string.")
-
-    return {
-        "room_name": room_name.strip(),
-        "image_path": image_path,
-        "image_media_type": image_media_type.strip(),
-        "room_modifications": room_modifications.strip() if isinstance(room_modifications, str) else None,
-        "state_timestamp": state_timestamp.strip(),
-    }
-
-
-def _load_persistent_room_seed_entries(manifest_path: Path) -> list[dict[str, Any]]:
-    """Load and validate committed persistent room seed definitions."""
-    if not manifest_path.exists():
-        raise FileNotFoundError(f"Persistent room seed manifest not found: {manifest_path}")
-
-    manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-    if not isinstance(manifest_payload, dict):
-        raise ValueError("Persistent room seed manifest must be a JSON object.")
-
-    raw_entries = manifest_payload.get("persistent_rooms")
-    if not isinstance(raw_entries, list) or not raw_entries:
-        raise ValueError("Persistent room seed manifest must contain a non-empty persistent_rooms array.")
-
-    normalized_entries: list[dict[str, Any]] = []
-    for raw_entry in raw_entries:
-        if not isinstance(raw_entry, dict):
-            raise ValueError("Each persistent room seed entry must be a JSON object.")
-        normalized_entries.append(_normalize_persistent_seed_entry(raw_entry, manifest_path))
-
-    return normalized_entries
-
-
-def _seed_persistent_room_states(database_path: Path, seed_entries: list[dict[str, Any]]) -> None:
-    """Insert missing persistent room base states from the committed manifest."""
-    persistent_seed_query = "SELECT id FROM room_table WHERE session_id = ? AND room_name = ? LIMIT 1"
-    insert_seed_query = """
-        INSERT INTO room_table (
-            session_id,
-            room_name,
-            room_image,
-            image_media_type,
-            room_modifications,
-            state_timestamp,
-            previous_state_id
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    """
-
-    with _get_db_connection(database_path) as connection:
-        for seed_entry in seed_entries:
-            existing_room_state = connection.execute(
-                persistent_seed_query,
-                (PERSISTENT_SESSION_ID, seed_entry["room_name"]),
-            ).fetchone()
-            if existing_room_state is not None:
-                continue
-
-            connection.execute(
-                insert_seed_query,
-                (
-                    PERSISTENT_SESSION_ID,
-                    seed_entry["room_name"],
-                    seed_entry["image_path"].read_bytes(),
-                    seed_entry["image_media_type"],
-                    seed_entry["room_modifications"],
-                    seed_entry["state_timestamp"],
-                    None,
-                ),
-            )
-            logger.info(
-                "Seeded persistent room '%s' from %s",
-                seed_entry["room_name"],
-                seed_entry["image_path"],
-            )
-
+def _resolve_privacy_notice_path(privacy_notice_path: str | Path | None = None) -> Path:
+    """Resolve the prototype privacy notice path from the argument or backend default."""
+    if privacy_notice_path is not None:
+        return Path(privacy_notice_path).expanduser().resolve()
+    return DEFAULT_PRIVACY_NOTICE_PATH.resolve()
 
 def _resolve_frontend_origin() -> str:
     """Build the allowed frontend origin for local development requests."""
@@ -319,73 +145,6 @@ def _resolve_session_cookie_samesite() -> str:
     if configured_value not in {"Lax", "Strict", "None"}:
         raise ValueError("SESSION_COOKIE_SAMESITE must be one of: Lax, Strict, None")
     return configured_value
-
-
-def _current_timestamp() -> str:
-    """Return a timezone-aware ISO-8601 timestamp for new room states."""
-    return datetime.now(timezone.utc).isoformat()
-
-
-def _decode_image_payload(room_image_base64: str) -> bytes:
-    """Decode a base64 image payload and fail fast on malformed input."""
-    try:
-        return base64.b64decode(room_image_base64, validate=True)
-    except (ValueError, binascii.Error) as error:
-        raise ValueError("room_image_base64 must be valid base64 data") from error
-
-
-def _serialize_room_state(row: sqlite3.Row, include_image: bool) -> dict[str, Any]:
-    """Convert a SQLite row into a JSON-safe room-state payload."""
-    payload: dict[str, Any] = {
-        "id": row["id"],
-        "session_id": row["session_id"],
-        "room_name": row["room_name"],
-        "image_media_type": row["image_media_type"],
-        "room_modifications": row["room_modifications"],
-        "state_timestamp": row["state_timestamp"],
-        "previous_state_id": row["previous_state_id"],
-    }
-
-    if include_image:
-        payload["room_image_base64"] = base64.b64encode(row["room_image"]).decode("ascii")
-
-    return payload
-
-
-def _validate_room_state_payload(payload: dict[str, Any]) -> dict[str, Any]:
-    """Validate and normalize incoming JSON before writing to SQLite."""
-    room_name = payload.get("room_name")
-    if not isinstance(room_name, str) or not room_name.strip():
-        raise ValueError("room_name is required and must be a non-empty string")
-
-    room_image_base64 = payload.get("room_image_base64")
-    if not isinstance(room_image_base64, str) or not room_image_base64.strip():
-        raise ValueError("room_image_base64 is required and must be a non-empty string")
-
-    room_modifications = payload.get("room_modifications")
-    if room_modifications is not None and not isinstance(room_modifications, str):
-        raise ValueError("room_modifications must be a string when provided")
-
-    state_timestamp = payload.get("state_timestamp", _current_timestamp())
-    if not isinstance(state_timestamp, str) or not state_timestamp.strip():
-        raise ValueError("state_timestamp must be a non-empty ISO-8601 string")
-
-    previous_state_id = payload.get("previous_state_id")
-    if previous_state_id is not None and not isinstance(previous_state_id, int):
-        raise ValueError("previous_state_id must be an integer when provided")
-
-    image_media_type = payload.get("image_media_type", "image/png")
-    if not isinstance(image_media_type, str) or not image_media_type.startswith("image/"):
-        raise ValueError("image_media_type must be an image/* MIME type")
-
-    return {
-        "room_name": room_name.strip(),
-        "room_image": _decode_image_payload(room_image_base64),
-        "room_modifications": room_modifications.strip() if isinstance(room_modifications, str) else None,
-        "state_timestamp": state_timestamp.strip(),
-        "previous_state_id": previous_state_id,
-        "image_media_type": image_media_type.strip(),
-    }
 
 
 def _generate_session_id() -> str:
@@ -439,49 +198,22 @@ def _replace_session_cookie(response: Response, app: Flask) -> Response:
     return _set_session_cookie(response, new_session_id, app)
 
 
-def _previous_state_belongs_to_session(
-    connection: sqlite3.Connection,
-    session_id: str,
-    previous_state_id: int | None,
-) -> bool:
-    """Ensure a room state can only chain to an earlier state from this session or the persistent base."""
-    if previous_state_id is None:
-        return True
-
-    row = connection.execute(
-        "SELECT 1 FROM room_table WHERE id = ? AND session_id IN (?, ?)",
-        (previous_state_id, session_id, PERSISTENT_SESSION_ID),
-    ).fetchone()
-    return row is not None
-
-
-def _room_query(room_name: str, latest_only: bool) -> tuple[str, tuple[Any, ...]]:
-    """Build the query used to merge a persistent room base with session-specific states."""
+def _ensure_runtime_session(app: Flask) -> str:
+    """Guarantee that a request has a session cookie, session state row, and starter inventory."""
     session_id = _ensure_session_id()
+    ensure_session_bootstrap(
+        database_path=app.config["DATABASE_PATH"],
+        session_id=session_id,
+        starter_inventory=app.config["STARTER_INVENTORY_SEED_ENTRIES"],
+    )
+    return session_id
 
-    if latest_only:
-        query = """
-            SELECT *
-            FROM room_table
-            WHERE session_id IN (?, ?) AND room_name = ?
-            ORDER BY
-                CASE WHEN session_id = ? THEN 0 ELSE 1 END ASC,
-                state_timestamp DESC,
-                id DESC
-            LIMIT 1
-        """
-        return query, (PERSISTENT_SESSION_ID, session_id, room_name, session_id)
 
-    query = """
-        SELECT *
-        FROM room_table
-        WHERE session_id IN (?, ?) AND room_name = ?
-        ORDER BY
-            CASE WHEN session_id = ? THEN 0 ELSE 1 END ASC,
-            state_timestamp ASC,
-            id ASC
-    """
-    return query, (PERSISTENT_SESSION_ID, session_id, room_name, session_id)
+def _sse_event(event_name: str, payload: dict[str, Any]) -> str:
+    """Format one server-sent event payload line."""
+    import json
+
+    return f"event: {event_name}\ndata: {json.dumps(payload)}\n\n"
 
 
 def create_app(
@@ -489,6 +221,7 @@ def create_app(
     schema_path: str | Path | None = None,
     seed_manifest_path: str | Path | None = None,
     opening_audio_path: str | Path | None = None,
+    privacy_notice_path: str | Path | None = None,
 ) -> Flask:
     """Create the Flask app and wire it to the SQLite room-state database."""
     _configure_logging()
@@ -498,20 +231,24 @@ def create_app(
     resolved_schema_path = _resolve_schema_path(schema_path)
     resolved_seed_manifest_path = _resolve_seed_manifest_path(seed_manifest_path)
     resolved_opening_audio_path = _resolve_opening_audio_path(opening_audio_path)
-    seed_entries = _load_persistent_room_seed_entries(resolved_seed_manifest_path)
+    resolved_privacy_notice_path = _resolve_privacy_notice_path(privacy_notice_path)
+    seed_manifest = load_seed_manifest(resolved_seed_manifest_path)
     app.config["DATABASE_PATH"] = resolved_database_path
     app.config["SCHEMA_PATH"] = resolved_schema_path
     app.config["FRONTEND_ORIGIN"] = _resolve_frontend_origin()
     app.config["OPENING_AUDIO_PATH"] = resolved_opening_audio_path
+    app.config["PRIVACY_NOTICE_PATH"] = resolved_privacy_notice_path
     app.config["SESSION_COOKIE_SECURE"] = _resolve_session_cookie_secure()
     app.config["SESSION_COOKIE_SAMESITE"] = _resolve_session_cookie_samesite()
     app.config["PERSISTENT_ROOM_SEED_MANIFEST_PATH"] = resolved_seed_manifest_path
+    app.config["PERSISTENT_ROOM_SEED_ENTRIES"] = seed_manifest["persistent_rooms"]
+    app.config["STARTER_INVENTORY_SEED_ENTRIES"] = seed_manifest["starter_inventory"]
 
     if app.config["SESSION_COOKIE_SAMESITE"] == "None" and not app.config["SESSION_COOKIE_SECURE"]:
         raise ValueError("SESSION_COOKIE_SAMESITE=None requires SESSION_COOKIE_SECURE=true")
 
-    _initialize_database(resolved_database_path, resolved_schema_path)
-    _seed_persistent_room_states(resolved_database_path, seed_entries)
+    initialize_database(resolved_database_path, resolved_schema_path)
+    seed_persistent_room_states(resolved_database_path, app.config["PERSISTENT_ROOM_SEED_ENTRIES"])
 
     @app.after_request
     def add_cors_headers(response: Any) -> Any:
@@ -531,10 +268,19 @@ def create_app(
         if request.headers.get("X-Forwarded-Proto", request.scheme) == "https":
             response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 
-        if request.path.startswith("/rooms/") or request.path == "/session/reset":
+        if (
+            request.path.startswith("/rooms/")
+            or request.path.startswith("/session/")
+            or request.path.startswith("/inventory")
+            or request.path.startswith("/chat/")
+        ):
             response.headers.setdefault("Cache-Control", "no-store")
         return response
 
+    @app.route("/session/state", methods=["OPTIONS"])
+    @app.route("/inventory", methods=["OPTIONS"])
+    @app.route("/chat/stream", methods=["OPTIONS"])
+    @app.route("/legal/privacy-notice", methods=["OPTIONS"])
     @app.route("/rooms/<string:room_name>/latest", methods=["OPTIONS"])
     @app.route("/rooms/<string:room_name>/states", methods=["OPTIONS"])
     @app.route("/rooms/states", methods=["OPTIONS"])
@@ -545,6 +291,58 @@ def create_app(
     @app.get("/health")
     def health() -> tuple[object, int]:
         return jsonify({"status": "ok"}), 200
+
+    @app.get("/session/state")
+    def get_current_session_state() -> tuple[object, int]:
+        session_id = _ensure_runtime_session(app)
+        session_state_payload = get_session_state(app.config["DATABASE_PATH"], session_id)
+        response = jsonify(session_state_payload or {"session_id": session_id, "current_room_name": "lobby"})
+        return _attach_session_cookie(response, session_id, app), 200
+
+    @app.get("/inventory")
+    def get_current_inventory() -> tuple[object, int]:
+        session_id = _ensure_runtime_session(app)
+        inventory_items = list_inventory_items(app.config["DATABASE_PATH"], session_id)
+        response = jsonify(inventory_items)
+        return _attach_session_cookie(response, session_id, app), 200
+
+    @app.post("/chat/stream")
+    def stream_chat_turn() -> Response | tuple[object, int]:
+        session_id = _ensure_runtime_session(app)
+        if not _request_origin_is_allowed(app.config["FRONTEND_ORIGIN"]):
+            logger.warning("Rejected chat stream from unexpected origin: %s", request.headers.get("Origin"))
+            response = jsonify({"error": "Request origin is not allowed."})
+            return _attach_session_cookie(response, session_id, app), 403
+
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            response = jsonify({"error": "Request body must be valid JSON."})
+            return _attach_session_cookie(response, session_id, app), 400
+
+        user_message = payload.get("message")
+        if not isinstance(user_message, str) or not user_message.strip():
+            response = jsonify({"error": "message is required and must be a non-empty string."})
+            return _attach_session_cookie(response, session_id, app), 400
+
+        from crew_coordinator import CrewCoordinator
+
+        coordinator = CrewCoordinator(app.config["DATABASE_PATH"])
+
+        def event_stream() -> Any:
+            try:
+                for stream_event in coordinator.stream_turn(session_id=session_id, user_message=user_message.strip()):
+                    yield _sse_event(stream_event["type"], stream_event)
+            except Exception as error:  # noqa: BLE001
+                logger.exception("Chat stream failed for session %s", session_id)
+                yield _sse_event(
+                    "error",
+                    {"type": "error", "message": str(error) or "The chat request could not be completed."},
+                )
+
+        response = Response(event_stream(), mimetype="text/event-stream")
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["X-Accel-Buffering"] = "no"
+        return _attach_session_cookie(response, session_id, app)
 
     @app.get("/audio/opening-theme")
     def get_opening_theme() -> Response | tuple[object, int]:
@@ -561,9 +359,24 @@ def create_app(
             download_name=audio_path.name,
         )
 
+    @app.get("/legal/privacy-notice")
+    def get_privacy_notice() -> Response | tuple[object, int]:
+        """Return the plain-language prototype privacy notice used on the start screen."""
+        notice_path = Path(app.config["PRIVACY_NOTICE_PATH"])
+        if not notice_path.exists():
+            logger.error("Privacy notice file not found: %s", notice_path)
+            return jsonify({"error": "Privacy notice is not available."}), 404
+
+        return send_file(
+            notice_path,
+            mimetype="text/markdown",
+            conditional=True,
+            download_name=notice_path.name,
+        )
+
     @app.post("/rooms/states")
-    def create_room_state() -> tuple[object, int]:
-        session_id = _ensure_session_id()
+    def create_room_state_endpoint() -> tuple[object, int]:
+        session_id = _ensure_runtime_session(app)
         if not _request_origin_is_allowed(app.config["FRONTEND_ORIGIN"]):
             logger.warning("Rejected room state write from unexpected origin: %s", request.headers.get("Origin"))
             response = jsonify({"error": "Request origin is not allowed."})
@@ -575,68 +388,29 @@ def create_app(
             return _attach_session_cookie(response, session_id, app), 400
 
         try:
-            room_state = _validate_room_state_payload(payload)
+            room_state = validate_room_state_payload(payload)
         except ValueError as error:
             logger.error("Room state validation failed: %s", error)
             response = jsonify({"error": str(error)})
             return _attach_session_cookie(response, session_id, app), 400
 
-        insert_sql = """
-            INSERT INTO room_table (
-                session_id,
-                room_name,
-                room_image,
-                image_media_type,
-                room_modifications,
-                state_timestamp,
-                previous_state_id
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """
-        select_sql = "SELECT * FROM room_table WHERE id = ?"
-
         try:
-            with _get_db_connection(app.config["DATABASE_PATH"]) as connection:
-                if not _previous_state_belongs_to_session(
-                    connection,
-                    session_id,
-                    room_state["previous_state_id"],
-                ):
-                    response = jsonify(
-                        {"error": "previous_state_id must reference an existing room state in this session."}
-                    )
-                    return _attach_session_cookie(response, session_id, app), 400
-
-                cursor = connection.execute(
-                    insert_sql,
-                    (
-                        session_id,
-                        room_state["room_name"],
-                        room_state["room_image"],
-                        room_state["image_media_type"],
-                        room_state["room_modifications"],
-                        room_state["state_timestamp"],
-                        room_state["previous_state_id"],
-                    ),
-                )
-                new_state_id = cursor.lastrowid
-                created_row = connection.execute(select_sql, (new_state_id,)).fetchone()
-        except sqlite3.IntegrityError as error:
+            created_room_state = insert_room_state(app.config["DATABASE_PATH"], session_id, room_state)
+        except ValueError as error:
             logger.error("Room state insert failed: %s", error)
-            response = jsonify({"error": "previous_state_id does not reference an existing room state."})
+            response = jsonify({"error": str(error)})
             return _attach_session_cookie(response, session_id, app), 400
 
         logger.info(
-            "Stored room state %s for room '%s' in session %s",
-            new_state_id,
-            room_state["room_name"],
+            "Stored room state for room '%s' in session %s",
+            created_room_state["room_name"],
             session_id,
         )
-        response = jsonify(_serialize_room_state(created_row, include_image=True))
+        response = jsonify(created_room_state)
         return _attach_session_cookie(response, session_id, app), 201
 
     @app.post("/session/reset")
-    def reset_session_progress() -> tuple[object, int]:
+    def reset_session_progress_endpoint() -> tuple[object, int]:
         """Delete this visitor's room history and issue a fresh anonymous session."""
         session_id = _ensure_session_id()
         if not _request_origin_is_allowed(app.config["FRONTEND_ORIGIN"]):
@@ -644,43 +418,30 @@ def create_app(
             response = jsonify({"error": "Request origin is not allowed."})
             return _attach_session_cookie(response, session_id, app), 403
 
-        delete_sql = """
-            DELETE FROM room_table
-            WHERE session_id = ? AND session_id != ?
-        """
-        with _get_db_connection(app.config["DATABASE_PATH"]) as connection:
-            delete_cursor = connection.execute(delete_sql, (session_id, PERSISTENT_SESSION_ID))
-            deleted_room_states = delete_cursor.rowcount if delete_cursor.rowcount >= 0 else 0
+        reset_summary = clear_session_progress(app.config["DATABASE_PATH"], session_id)
 
-        logger.info("Reset session %s and deleted %s room states", session_id, deleted_room_states)
-        response = jsonify({"status": "reset", "deleted_room_states": deleted_room_states})
+        logger.info("Reset session %s and deleted scoped state: %s", session_id, reset_summary)
+        response = jsonify({"status": "reset", **reset_summary})
         return _replace_session_cookie(response, app), 200
 
     @app.get("/rooms/<string:room_name>/states")
-    def list_room_states(room_name: str) -> tuple[object, int]:
-        session_id = _ensure_session_id()
+    def list_room_states_endpoint(room_name: str) -> tuple[object, int]:
+        session_id = _ensure_runtime_session(app)
         include_images = request.args.get("include_images", "false").lower() == "true"
-        query, query_params = _room_query(room_name, latest_only=False)
-
-        with _get_db_connection(app.config["DATABASE_PATH"]) as connection:
-            rows = connection.execute(query, query_params).fetchall()
-
-        response = jsonify([_serialize_room_state(row, include_images) for row in rows])
+        room_states = fetch_room_states(app.config["DATABASE_PATH"], session_id, room_name, include_images)
+        response = jsonify(room_states)
         return _attach_session_cookie(response, session_id, app), 200
 
     @app.get("/rooms/<string:room_name>/latest")
-    def get_latest_room_state(room_name: str) -> tuple[object, int]:
-        session_id = _ensure_session_id()
-        query, query_params = _room_query(room_name, latest_only=True)
+    def get_latest_room_state_endpoint(room_name: str) -> tuple[object, int]:
+        session_id = _ensure_runtime_session(app)
+        room_state = fetch_latest_room_state(app.config["DATABASE_PATH"], session_id, room_name)
 
-        with _get_db_connection(app.config["DATABASE_PATH"]) as connection:
-            row = connection.execute(query, query_params).fetchone()
-
-        if row is None:
+        if room_state is None:
             response = jsonify({"error": f"No room states found for room '{room_name}' in this session."})
             return _attach_session_cookie(response, session_id, app), 404
 
-        response = jsonify(_serialize_room_state(row, include_image=True))
+        response = jsonify(room_state)
         return _attach_session_cookie(response, session_id, app), 200
 
     return app

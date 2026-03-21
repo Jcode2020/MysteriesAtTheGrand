@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Opus 4.6 Sunlit Uncanny Mood Board</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300&display=swap');
+
+      :root {
+        --bg: #f8f9fb;
+        --surface: #ffffff;
+        --ink: #232d36;
+        --muted: #7a868f;
+        --pale-blue: #d6e3ed;
+        --silver: #b8c4ce;
+        --teal: #2a5a5e;
+        --coral-mute: #c08b7a;
+        --glass: rgba(214, 227, 237, 0.35);
+        --rule: rgba(35, 45, 54, 0.1);
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+      }
+
+      body {
+        font-family: "Cormorant Garamond", Georgia, serif;
+        color: var(--ink);
+        background: var(--bg);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      /* Full-width cinematic sections */
+      .band {
+        padding: 0 32px;
+      }
+
+      .band-inner {
+        max-width: 1080px;
+        margin: 0 auto;
+      }
+
+      /* Hero -- airy, tall, centered */
+      .hero {
+        min-height: 60vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 80px 32px;
+        background:
+          radial-gradient(ellipse at 50% 20%, rgba(214, 227, 237, 0.5), transparent 70%),
+          var(--bg);
+      }
+
+      .hero-content {
+        max-width: 660px;
+      }
+
+      .eyebrow {
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.68rem;
+        font-weight: 500;
+        letter-spacing: 0.4em;
+        text-transform: uppercase;
+        color: var(--teal);
+        margin-bottom: 20px;
+      }
+
+      h1 {
+        font-size: clamp(3rem, 6vw, 5.2rem);
+        font-weight: 300;
+        line-height: 1.08;
+        letter-spacing: -0.02em;
+        margin-bottom: 28px;
+      }
+
+      .thesis {
+        font-size: 1.2rem;
+        font-weight: 300;
+        line-height: 1.75;
+        color: var(--muted);
+      }
+
+      .thesis strong {
+        color: var(--ink);
+        font-weight: 400;
+      }
+
+      .tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: center;
+        margin-top: 28px;
+      }
+
+      .tag {
+        font-family: system-ui, -apple-system, sans-serif;
+        padding: 6px 16px;
+        font-size: 0.72rem;
+        font-weight: 500;
+        letter-spacing: 0.08em;
+        border: 1px solid var(--rule);
+        border-radius: 999px;
+        background: var(--surface);
+        color: var(--muted);
+      }
+
+      /* Horizontal rule with label */
+      .divider {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 48px 0 32px;
+      }
+
+      .divider::before,
+      .divider::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--rule);
+      }
+
+      .divider span {
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.68rem;
+        font-weight: 500;
+        letter-spacing: 0.36em;
+        text-transform: uppercase;
+        color: var(--silver);
+        white-space: nowrap;
+      }
+
+      h2 {
+        font-size: 0.72rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-weight: 500;
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 16px;
+      }
+
+      h3 {
+        font-size: 1.5rem;
+        font-weight: 400;
+        line-height: 1.35;
+      }
+
+      p {
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.95rem;
+        line-height: 1.7;
+        color: var(--muted);
+        font-weight: 400;
+      }
+
+      /* Palette -- wide strip */
+      .palette-strip {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 0;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid var(--rule);
+      }
+
+      .swatch {
+        min-height: 120px;
+        padding: 14px;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.7rem;
+        font-weight: 500;
+      }
+
+      .swatch-hex {
+        font-weight: 400;
+        opacity: 0.65;
+        font-size: 0.64rem;
+        margin-top: 2px;
+      }
+
+      /* Lobby -- glass/conservatory feel */
+      .lobby-block {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 40px;
+        align-items: start;
+      }
+
+      .conservatory {
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid var(--rule);
+        background:
+          linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0.9) 0%,
+            rgba(214, 227, 237, 0.3) 40%,
+            rgba(255, 255, 255, 0.7) 100%
+          );
+        position: relative;
+        min-height: 340px;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        padding: 32px;
+      }
+
+      .conservatory::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+          repeating-linear-gradient(
+            90deg,
+            transparent 0px,
+            transparent 79px,
+            rgba(184, 196, 206, 0.2) 79px,
+            rgba(184, 196, 206, 0.2) 80px
+          ),
+          repeating-linear-gradient(
+            0deg,
+            transparent 0px,
+            transparent 79px,
+            rgba(184, 196, 206, 0.15) 79px,
+            rgba(184, 196, 206, 0.15) 80px
+          );
+        pointer-events: none;
+      }
+
+      .conservatory .room-label {
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.64rem;
+        letter-spacing: 0.4em;
+        text-transform: uppercase;
+        color: var(--teal);
+        margin-bottom: 10px;
+        position: relative;
+      }
+
+      .conservatory h3 {
+        position: relative;
+        font-size: 1.3rem;
+        max-width: 320px;
+      }
+
+      .conservatory p {
+        position: relative;
+        font-size: 0.88rem;
+        max-width: 340px;
+        margin-top: 6px;
+      }
+
+      .lobby-text p {
+        margin-bottom: 14px;
+      }
+
+      /* Sample UI */
+      .ui-shell {
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid var(--rule);
+        background: var(--surface);
+      }
+
+      .ui-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 14px 20px;
+        border-bottom: 1px solid var(--rule);
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.68rem;
+        font-weight: 500;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      .ui-body {
+        padding: 28px 24px;
+      }
+
+      .ui-scene {
+        padding-bottom: 20px;
+        margin-bottom: 20px;
+        border-bottom: 1px solid var(--rule);
+      }
+
+      .ui-scene h3 {
+        color: var(--ink);
+        margin-bottom: 8px;
+      }
+
+      .ui-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .btn {
+        font-family: system-ui, -apple-system, sans-serif;
+        padding: 10px 18px;
+        font-size: 0.78rem;
+        font-weight: 500;
+        letter-spacing: 0.04em;
+        border: 1px solid var(--rule);
+        border-radius: 999px;
+        background: var(--surface);
+        color: var(--ink);
+        cursor: pointer;
+      }
+
+      .btn-primary {
+        background: var(--teal);
+        color: #f0f6f6;
+        border-color: var(--teal);
+      }
+
+      /* Details */
+      .detail-row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 40px;
+      }
+
+      /* Challenge block */
+      .challenge-band {
+        margin-top: 56px;
+        padding: 40px 0;
+        border-top: 1px solid var(--rule);
+        border-bottom: 1px solid var(--rule);
+      }
+
+      .challenge-inner {
+        display: grid;
+        grid-template-columns: 200px 1fr;
+        gap: 32px;
+        align-items: start;
+      }
+
+      .challenge-inner h2 {
+        margin-bottom: 0;
+      }
+
+      .challenge-inner p {
+        font-size: 0.95rem;
+        color: var(--ink);
+      }
+
+      /* Best For */
+      .bestfor-band {
+        padding: 40px 0 0;
+      }
+
+      .bestfor-inner {
+        display: grid;
+        grid-template-columns: 200px 1fr;
+        gap: 32px;
+        align-items: start;
+      }
+
+      .bestfor-inner h2 {
+        margin-bottom: 0;
+      }
+
+      .bestfor-inner p {
+        font-size: 1rem;
+        color: var(--ink);
+        line-height: 1.7;
+      }
+
+      @media (max-width: 780px) {
+        .hero {
+          min-height: auto;
+          padding: 56px 24px;
+        }
+
+        .lobby-block,
+        .detail-row {
+          grid-template-columns: 1fr;
+        }
+
+        .challenge-inner,
+        .bestfor-inner {
+          grid-template-columns: 1fr;
+          gap: 12px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <section class="hero">
+      <div class="hero-content">
+        <div class="eyebrow">Challenger Direction</div>
+        <h1>Sunlit Uncanny</h1>
+        <p class="thesis">
+          Mystery in broad daylight. The Grand Hotel is explored in a bright conservatory at noon,
+          where <strong>everything is visible but something is wrong</strong>. Luxury is expressed
+          through space, silence, and light rather than material richness. The unsettling quality
+          comes from excessive clarity -- like a Hitchcock scene shot in sunshine.
+        </p>
+        <div class="tags">
+          <span class="tag">Bright mystery</span>
+          <span class="tag">Cool luxury</span>
+          <span class="tag">Editorial restraint</span>
+          <span class="tag">Deliberate silence</span>
+        </div>
+      </div>
+    </section>
+
+    <main class="band">
+      <div class="band-inner">
+
+        <!-- Palette -->
+        <div class="divider"><span>Palette</span></div>
+        <div class="palette-strip">
+          <div class="swatch" style="background: #f8f9fb; color: #232d36;">
+            Morning White
+            <span class="swatch-hex">#F8F9FB</span>
+          </div>
+          <div class="swatch" style="background: #d6e3ed; color: #232d36;">
+            Window Pale
+            <span class="swatch-hex">#D6E3ED</span>
+          </div>
+          <div class="swatch" style="background: #b8c4ce; color: #232d36;">
+            Silver Linen
+            <span class="swatch-hex">#B8C4CE</span>
+          </div>
+          <div class="swatch" style="background: #2a5a5e; color: #eef5f5;">
+            Still Teal
+            <span class="swatch-hex">#2A5A5E</span>
+          </div>
+          <div class="swatch" style="background: #c08b7a; color: #ffffff;">
+            Muted Coral
+            <span class="swatch-hex">#C08B7A</span>
+          </div>
+        </div>
+
+        <!-- Lobby + Description -->
+        <div class="divider"><span>Lobby Visual Direction</span></div>
+        <div class="lobby-block">
+          <div class="conservatory">
+            <div class="room-label">The Conservatory</div>
+            <h3>Tall glass, white stone, and a silence that feels like being observed.</h3>
+            <p>Morning light fills every corner. Nothing is hidden. That is what makes it unsettling.</p>
+          </div>
+          <div class="lobby-text">
+            <p>
+              The lobby should feel like a bright morning room in a Baltic or Alpine Grand Hotel: white
+              marble floors, tall windows with pale curtains, silver-framed mirrors, and cool northern
+              light that makes every surface legible.
+            </p>
+            <p>
+              There are no shadows to hide in. The mystery lives in what people say, what objects are
+              placed where they shouldn't be, and the strange stillness of a hotel that feels too composed.
+            </p>
+            <p>
+              Think of the Kempinski Atlantic's winter garden, the Belmond Grand Hotel Europe's lobby at
+              dawn, or a Vilhelm Hammershoi painting -- interiors where light itself becomes surveillance.
+            </p>
+          </div>
+        </div>
+
+        <!-- Sample UI -->
+        <div class="divider"><span>Sample In-Game UI</span></div>
+        <div class="ui-shell">
+          <div class="ui-bar">
+            <span>Morning Room</span>
+            <span>Observation 04</span>
+          </div>
+          <div class="ui-body">
+            <div class="ui-scene">
+              <h3>The breakfast table is set for three, but only two chairs show signs of use.</h3>
+              <p>
+                Bright linen, polished silver, a folded newspaper. Everything is in order.
+                The third place setting is untouched, and has been for some time.
+              </p>
+            </div>
+            <div class="ui-actions">
+              <button class="btn btn-primary">Examine Third Setting</button>
+              <button class="btn">Read Newspaper</button>
+              <button class="btn">Ask Waiter</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Typography, Materials, Ornament -->
+        <div class="divider"><span>Details</span></div>
+        <div class="detail-row">
+          <div>
+            <h2>Typography Feel</h2>
+            <p>
+              Tall, light-weight serif for display headings -- elegant and slightly editorial,
+              like a fashion or architecture magazine. Sans-serif for all functional text.
+              Light weights dominate. The typography should feel spacious, not weighty.
+            </p>
+          </div>
+          <div>
+            <h2>Materials &amp; Textures</h2>
+            <p>
+              White marble, pale linen, frosted glass, silver frames, cool ceramic tile,
+              pressed cotton napkins, thin porcelain. Surfaces feel clean and reflective
+              rather than warm and absorbent.
+            </p>
+          </div>
+          <div>
+            <h2>Ornament Level</h2>
+            <p>
+              Minimal. The tension comes from negative space, not decoration. Hairline
+              borders, generous padding, and intentional emptiness. The interface should
+              feel like a room with too few objects -- where absence is the signal.
+            </p>
+          </div>
+        </div>
+
+        <!-- Challenge -->
+        <div class="challenge-band">
+          <div class="challenge-inner">
+            <h2>What This Challenges</h2>
+            <p>
+              Every existing board assumes that mystery needs warmth, shadow, and material
+              richness to work. When the mood is darker, the palette gets heavier. When luxury
+              increases, surfaces multiply. This board inverts that assumption entirely: mystery
+              lives in brightness and clarity, luxury is expressed through space and absence,
+              and the uncanny feeling comes from a world that is too visible, too still, and
+              too perfectly arranged. It tests whether the Grand Hotel experience can be
+              compelling without relying on darkness as an atmospheric crutch.
+            </p>
+          </div>
+        </div>
+
+        <!-- Best For -->
+        <div class="bestfor-band">
+          <div class="bestfor-inner">
+            <h2>Best For</h2>
+            <p>
+              A Grand Hotel experience that feels fresh, sophisticated, and unsettling in an
+              unexpected way. Best if the project should distinguish itself from every other
+              mystery game by refusing the expected dark-and-moody palette, and instead making
+              the player uncomfortable through elegance, stillness, and too much light.
+              Strongest option for a Hitchcockian or Nordic-hotel sensibility.
+            </p>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </body>
+</html>

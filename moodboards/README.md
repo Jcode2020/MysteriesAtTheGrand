@@ -19,6 +19,14 @@ This folder contains visual directions and reference boards for the Grand Hotel 
 - `gpt-5.4-hotel-dusk-room-215.html`: `GPT-5.4 Hotel Dusk: Room 215` reference board for intimate hotel investigation and room-by-room clue flow.
 - `gpt-5.4-the-sexy-brutale.html`: `GPT-5.4 The Sexy Brutale` reference board for theatrical architecture, memorable rooms, and dramatic reveal energy.
 
+## Challenger boards
+
+These boards deliberately push against the shared assumptions of the set above. Each tests a different interpretation of the Grand Hotel mystery experience.
+
+- `opus-4.6-viennese-secession.html`: `Opus 4.6 Viennese Secession` board exploring geometric, cool-toned luxury inspired by the Secession design movement (1897-1914). Challenges the assumption that period-correct luxury must be warm and ornate.
+- `opus-4.6-sunlit-uncanny.html`: `Opus 4.6 Sunlit Uncanny` board exploring mystery in broad daylight -- pale blues, silver, and negative space. Challenges the assumption that mystery needs darkness and material richness.
+- `opus-4.6-guests-dossier.html`: `Opus 4.6 The Guest's Dossier` board exploring the experience as paper artifact -- typewritten case notes, hotel stationery, telegrams, and guest registers. Challenges the assumption that the interface should present a rendered visual environment.
+
 ## Recommended default
 
 If the design must align closely with the current project vision without further direction, start from `gpt-5.4-belle-epoque-luxury.html`.

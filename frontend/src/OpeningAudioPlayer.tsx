@@ -3,9 +3,10 @@ import React, { useCallback, useEffect, useRef } from "react";
 type OpeningAudioPlayerProps = {
   audioUrl: string | null;
   isMuted: boolean;
+  volume: number;
 };
 
-function OpeningAudioPlayer({ audioUrl, isMuted }: OpeningAudioPlayerProps) {
+function OpeningAudioPlayer({ audioUrl, isMuted, volume }: OpeningAudioPlayerProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const shouldKeepTryingToPlayRef = useRef(!isMuted);
 
@@ -19,6 +20,16 @@ function OpeningAudioPlayer({ audioUrl, isMuted }: OpeningAudioPlayerProps) {
       console.warn("Opening theme autoplay was blocked by the browser.", error);
     });
   }, []);
+
+  useEffect(() => {
+    const audioElement = audioRef.current;
+    if (audioElement === null || !audioUrl) {
+      return;
+    }
+
+    // Keep the looping theme duckable while narrated overlays take focus.
+    audioElement.volume = Math.min(Math.max(volume, 0), 1);
+  }, [audioUrl, volume]);
 
   useEffect(() => {
     const audioElement = audioRef.current;

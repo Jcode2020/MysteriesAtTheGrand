@@ -116,6 +116,7 @@ function App() {
   });
   const [isAudioMuted, setIsAudioMuted] = useState(true);
   const [isStartNoticeOpen, setIsStartNoticeOpen] = useState(false);
+  const [isIntroModalOpen, setIsIntroModalOpen] = useState(false);
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState<boolean>(() => {
     if (typeof window === "undefined") {
@@ -138,6 +139,8 @@ function App() {
   const activeChatRequestRef = useRef<AbortController | null>(null);
   const backendBaseUrl = getBackendBaseUrl();
   const openingThemeUrl = `${backendBaseUrl}/audio/opening-theme`;
+  const introAudioUrl = `${backendBaseUrl}/audio/intro`;
+  const openingThemeVolume = isIntroModalOpen && !isAudioMuted ? 0.3 : 1;
 
   const ensureWelcomeMessage = useCallback(() => {
     setChatMessages((currentMessages) =>
@@ -230,6 +233,7 @@ function App() {
       setIsChatOpen(false);
       setIsResetModalOpen(false);
       setIsStartNoticeOpen(false);
+      setIsIntroModalOpen(false);
       setChatDraft("");
       setChatError(null);
       setChatMessages(createInitialMessages());
@@ -433,7 +437,7 @@ function App() {
 
   return (
     <>
-      <OpeningAudioPlayer audioUrl={openingThemeUrl} isMuted={isAudioMuted} />
+      <OpeningAudioPlayer audioUrl={openingThemeUrl} isMuted={isAudioMuted} volume={openingThemeVolume} />
       <AudioToggleButton isMuted={isAudioMuted} onToggle={() => setIsAudioMuted((currentValue) => !currentValue)} />
 
       {hasStarted ? (
@@ -477,22 +481,28 @@ function App() {
           backgroundImageUrl={roomImageUrl}
           isLoadingImage={isRoomImageLoading}
           isNoticeOpen={isStartNoticeOpen}
+          isIntroOpen={isIntroModalOpen}
           hasConsented={hasConsented}
+          introAudioUrl={introAudioUrl}
+          isAudioMuted={isAudioMuted}
           onConsentChange={setHasConsented}
           onCloseNotice={() => {
             setIsStartNoticeOpen(false);
           }}
+          onCloseIntro={() => {
+            setIsIntroModalOpen(false);
+            setHasStarted(true);
+            setIsChatOpen(true);
+          }}
           onConfirmStart={() => {
             ensureWelcomeMessage();
             setIsStartNoticeOpen(false);
-            setHasStarted(true);
-            setIsChatOpen(true);
+            setIsIntroModalOpen(true);
           }}
           onStart={() => {
             if (hasConsented) {
               ensureWelcomeMessage();
-              setHasStarted(true);
-              setIsChatOpen(true);
+              setIsIntroModalOpen(true);
               return;
             }
             setIsStartNoticeOpen(true);

@@ -17,6 +17,7 @@ ONE_PIXEL_PNG_BASE64 = (
     "/w8AAusB9Y9nX4QAAAAASUVORK5CYII="
 )
 OPENING_AUDIO_BYTES = b"ID3test-opening-theme"
+INTRO_AUDIO_BYTES = b"ID3test-intro-audio"
 
 
 class BackendApiTests(unittest.TestCase):
@@ -26,14 +27,17 @@ class BackendApiTests(unittest.TestCase):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.database_path = Path(self.temp_dir.name) / "test_hotel_db.sqlite3"
         self.opening_audio_path = Path(self.temp_dir.name) / "opening-theme.mp3"
+        self.intro_audio_path = Path(self.temp_dir.name) / "intro.mp3"
         self.privacy_notice_path = Path(self.temp_dir.name) / "privacy-notice.md"
         self.opening_audio_path.write_bytes(OPENING_AUDIO_BYTES)
+        self.intro_audio_path.write_bytes(INTRO_AUDIO_BYTES)
         self.privacy_notice_path.write_text("# Test Notice\n\nPrototype only.", encoding="utf-8")
         self.seed_manifest_path = self._write_seed_manifest()
         self.app = create_app(
             database_path=self.database_path,
             seed_manifest_path=self.seed_manifest_path,
             opening_audio_path=self.opening_audio_path,
+            intro_audio_path=self.intro_audio_path,
             privacy_notice_path=self.privacy_notice_path,
         )
         self.client = self.app.test_client()
@@ -174,6 +178,13 @@ class BackendApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.mimetype, "audio/mpeg")
         self.assertEqual(response.data, OPENING_AUDIO_BYTES)
+
+    def test_intro_audio_streams_the_committed_audio_file(self) -> None:
+        response = self.client.get("/audio/intro")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.mimetype, "audio/mpeg")
+        self.assertEqual(response.data, INTRO_AUDIO_BYTES)
 
     def test_privacy_notice_streams_markdown(self) -> None:
         response = self.client.get("/legal/privacy-notice")

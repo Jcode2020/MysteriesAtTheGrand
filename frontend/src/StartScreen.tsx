@@ -1,26 +1,90 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 
 type StartScreenProps = {
   backgroundImageUrl: string | null;
   isLoadingImage: boolean;
   isNoticeOpen: boolean;
+  isIntroOpen: boolean;
   hasConsented: boolean;
+  introAudioUrl: string | null;
+  isAudioMuted: boolean;
   onConsentChange: (hasConsented: boolean) => void;
   onCloseNotice: () => void;
+  onCloseIntro: () => void;
   onConfirmStart: () => void;
   onStart: () => void;
 };
+
+const INTRO_COPY = [
+  "In 1933, archaeologist Andrea Richter discovered the Tablet of Destinies, a relic said to hold power over fate itself.",
+  "The moment she touched it, she saw a terrible future: dictatorship, war, and Europe descending into darkness.",
+  "Hunted by those who would abuse its power, she left Baghdad for Paris on the Orient Express.",
+  "As her pursuers drew closer, she left the train in Budapest and checked into the Grand Pannonia Hotel.",
+  "In an act of desperation, she concealed the Tablet within the hotel and disappeared.",
+  "Now the secret remains hidden in silence.",
+  "It falls to you to uncover Andrea's trail and find the Tablet of Destinies.",
+] as const;
 
 function StartScreen({
   backgroundImageUrl,
   isLoadingImage,
   isNoticeOpen,
+  isIntroOpen,
   hasConsented,
+  introAudioUrl,
+  isAudioMuted,
   onConsentChange,
   onCloseNotice,
+  onCloseIntro,
   onConfirmStart,
   onStart,
 }: StartScreenProps) {
+  const introAudioRef = useRef<HTMLAudioElement | null>(null);
+  const introStartTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const audioElement = introAudioRef.current;
+    if (audioElement === null) {
+      return;
+    }
+
+    if (!isIntroOpen) {
+      if (introStartTimeoutRef.current !== null) {
+        window.clearTimeout(introStartTimeoutRef.current);
+        introStartTimeoutRef.current = null;
+      }
+      audioElement.pause();
+      audioElement.currentTime = 0;
+      return;
+    }
+
+    if (isAudioMuted || !introAudioUrl) {
+      if (introStartTimeoutRef.current !== null) {
+        window.clearTimeout(introStartTimeoutRef.current);
+        introStartTimeoutRef.current = null;
+      }
+      audioElement.pause();
+      return;
+    }
+
+    // Keep the spoken intro at full volume while the theme is ducked elsewhere.
+    audioElement.volume = 1;
+    audioElement.currentTime = 0;
+    introStartTimeoutRef.current = window.setTimeout(() => {
+      introStartTimeoutRef.current = null;
+      void audioElement.play().catch((error: unknown) => {
+        console.warn("Intro narration playback was blocked by the browser.", error);
+      });
+    }, 1000);
+
+    return () => {
+      if (introStartTimeoutRef.current !== null) {
+        window.clearTimeout(introStartTimeoutRef.current);
+        introStartTimeoutRef.current = null;
+      }
+    };
+  }, [introAudioUrl, isAudioMuted, isIntroOpen]);
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#120d0a] text-parchment">
       {backgroundImageUrl ? (
@@ -69,6 +133,36 @@ function StartScreen({
                 disabled={!hasConsented}
               >
                 Enter
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {isIntroOpen ? (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-[rgba(18,13,10,0.78)] px-5 py-6 backdrop-blur-sm">
+          <section className="w-full max-w-3xl rounded-[28px] border border-[#b08a3e]/28 bg-[linear-gradient(180deg,rgba(252,246,238,0.96)_0%,rgba(233,216,192,0.94)_100%)] px-6 py-6 text-left text-walnut-ink shadow-[0_30px_90px_rgba(0,0,0,0.4)]">
+            <p className="text-[11px] uppercase tracking-[0.34em] text-[#8a5b24]">Setting</p>
+            <h2 className="mt-4 font-display text-[2rem] leading-none text-[#2d1d16]">The Grand Pannonia remembers</h2>
+            <div className="mt-5 space-y-4 text-sm leading-7 text-[#4a352c]">
+              {INTRO_COPY.map((paragraph, index) =>
+                index === INTRO_COPY.length - 1 ? (
+                  <p key={paragraph} className="font-semibold text-[#2d1d16]">
+                    {paragraph}
+                  </p>
+                ) : (
+                  <p key={paragraph}>{paragraph}</p>
+                ),
+              )}
+            </div>
+            <audio ref={introAudioRef} src={introAudioUrl ?? undefined} preload="auto" aria-hidden="true" className="hidden" />
+            <div className="mt-6 flex justify-end border-t border-[rgba(45,29,22,0.12)] pt-5">
+              <button
+                type="button"
+                className="rounded-full border border-[#6f2430]/18 bg-[linear-gradient(180deg,rgba(111,36,48,0.96)_0%,rgba(79,23,34,0.98)_100%)] px-6 py-3 text-[12px] uppercase tracking-[0.24em] text-[#fcf6ee] shadow-[0_18px_40px_rgba(0,0,0,0.22)] transition duration-200 hover:-translate-y-px hover:shadow-[0_22px_42px_rgba(0,0,0,0.26)]"
+                onClick={onCloseIntro}
+              >
+                Enter the Hotel
               </button>
             </div>
           </section>

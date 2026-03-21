@@ -28,6 +28,7 @@ DEFAULT_DATABASE_PATH = REPO_ROOT_DIR / "db" / "hotel_db.sqlite3"
 DEFAULT_SCHEMA_PATH = BACKEND_DIR / "schema.sql"
 DEFAULT_PERSISTENT_ROOM_SEED_MANIFEST_PATH = BACKEND_DIR / "seed" / "persistent" / "manifest.json"
 DEFAULT_OPENING_AUDIO_PATH = BACKEND_DIR / "static" / "audio" / "Secrets_of_the_Grand_Pannonia_2026-03-21T133239.mp3"
+DEFAULT_INTRO_AUDIO_PATH = BACKEND_DIR / "static" / "audio" / "intro.mp3"
 DEFAULT_PRIVACY_NOTICE_PATH = BACKEND_DIR / "legal" / "privacy-notice.md"
 SESSION_COOKIE_NAME = "grand_pannonia_session_id"
 LOG_FORMAT = "[%(asctime)s] %(levelname)s - %(message)s"
@@ -188,6 +189,18 @@ def _resolve_opening_audio_path(opening_audio_path: str | Path | None = None) ->
     return DEFAULT_OPENING_AUDIO_PATH.resolve()
 
 
+def _resolve_intro_audio_path(intro_audio_path: str | Path | None = None) -> Path:
+    """Resolve the narrated intro audio path from the argument or environment."""
+    if intro_audio_path is not None:
+        return Path(intro_audio_path).expanduser().resolve()
+
+    configured_audio_path = os.getenv("INTRO_AUDIO_PATH")
+    if configured_audio_path:
+        return Path(configured_audio_path).expanduser().resolve()
+
+    return DEFAULT_INTRO_AUDIO_PATH.resolve()
+
+
 def _resolve_privacy_notice_path(privacy_notice_path: str | Path | None = None) -> Path:
     """Resolve the prototype privacy notice path from the argument or backend default."""
     if privacy_notice_path is not None:
@@ -318,6 +331,7 @@ def create_app(
     schema_path: str | Path | None = None,
     seed_manifest_path: str | Path | None = None,
     opening_audio_path: str | Path | None = None,
+    intro_audio_path: str | Path | None = None,
     privacy_notice_path: str | Path | None = None,
 ) -> Flask:
     """Create the Flask app and wire it to the SQLite room-state database."""
@@ -330,12 +344,14 @@ def create_app(
     resolved_schema_path = _resolve_schema_path(schema_path)
     resolved_seed_manifest_path = _resolve_seed_manifest_path(seed_manifest_path)
     resolved_opening_audio_path = _resolve_opening_audio_path(opening_audio_path)
+    resolved_intro_audio_path = _resolve_intro_audio_path(intro_audio_path)
     resolved_privacy_notice_path = _resolve_privacy_notice_path(privacy_notice_path)
     seed_manifest = load_seed_manifest(resolved_seed_manifest_path)
     app.config["DATABASE_PATH"] = resolved_database_path
     app.config["SCHEMA_PATH"] = resolved_schema_path
     app.config["FRONTEND_ORIGIN"] = _resolve_frontend_origin()
     app.config["OPENING_AUDIO_PATH"] = resolved_opening_audio_path
+    app.config["INTRO_AUDIO_PATH"] = resolved_intro_audio_path
     app.config["PRIVACY_NOTICE_PATH"] = resolved_privacy_notice_path
     app.config["SESSION_COOKIE_SECURE"] = _resolve_session_cookie_secure()
     app.config["SESSION_COOKIE_SAMESITE"] = _resolve_session_cookie_samesite()
@@ -460,6 +476,21 @@ def create_app(
         if not audio_path.exists():
             logger.error("Opening audio file not found: %s", audio_path)
             return jsonify({"error": "Opening audio file is not available."}), 404
+
+        return send_file(
+            audio_path,
+            mimetype="audio/mpeg",
+            conditional=True,
+            download_name=audio_path.name,
+        )
+
+    @app.get("/audio/intro")
+    def get_intro_audio() -> Response | tuple[object, int]:
+        """Stream the narrated intro played before the guest enters the hotel."""
+        audio_path = Path(app.config["INTRO_AUDIO_PATH"])
+        if not audio_path.exists():
+            logger.error("Intro audio file not found: %s", audio_path)
+            return jsonify({"error": "Intro audio file is not available."}), 404
 
         return send_file(
             audio_path,

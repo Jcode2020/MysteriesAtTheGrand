@@ -12,6 +12,9 @@ logs/
 .ruff_cache/
 frontend/node_modules/
 frontend/dist/
+db/*.db
+db/*.sqlite
+db/*.sqlite3
 .DS_Store
 .vscode/
 .idea/

@@ -1,9 +1,9 @@
 import React from "react";
 
-import lobbyImage from "./assets/grand-pannonia-lobby.png";
-
 type StartScreenProps = {
+  backgroundImageUrl: string | null;
   isAudioMuted: boolean;
+  isLoadingImage: boolean;
   onStart: () => void;
   onToggleAudio: () => void;
 };
@@ -70,14 +70,22 @@ function AudioOffIcon() {
   );
 }
 
-function StartScreen({ isAudioMuted, onStart, onToggleAudio }: StartScreenProps) {
+function StartScreen({
+  backgroundImageUrl,
+  isAudioMuted,
+  isLoadingImage,
+  onStart,
+  onToggleAudio,
+}: StartScreenProps) {
   return (
     <main className="start-screen">
-      <img
-        className="start-screen__background"
-        src={lobbyImage}
-        alt="Grand hotel lobby with warm chandelier light, marble floors, and a sweeping staircase."
-      />
+      {backgroundImageUrl ? (
+        <img
+          className="start-screen__background"
+          src={backgroundImageUrl}
+          alt="Grand hotel lobby with warm chandelier light, marble floors, and a sweeping staircase."
+        />
+      ) : null}
 
       <div className="start-screen__overlay" />
 
@@ -98,6 +106,7 @@ function StartScreen({ isAudioMuted, onStart, onToggleAudio }: StartScreenProps)
           <h1 id="start-screen-title" className="start-screen__title">
             Grand Pannonia Hotel
           </h1>
+          {isLoadingImage ? <p className="start-screen__status">Preparing the lobby...</p> : null}
         </div>
 
         <button type="button" className="start-screen__button" onClick={onStart}>

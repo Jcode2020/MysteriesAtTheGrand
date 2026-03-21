@@ -18,6 +18,7 @@ This folder contains visual directions and reference boards for the Grand Hotel 
 - `gpt-5.4-the-last-express.html`: `GPT-5.4 The Last Express` reference board for period travel luxury, social intrigue, and aristocratic tension.
 - `gpt-5.4-hotel-dusk-room-215.html`: `GPT-5.4 Hotel Dusk: Room 215` reference board for intimate hotel investigation and room-by-room clue flow.
 - `gpt-5.4-the-sexy-brutale.html`: `GPT-5.4 The Sexy Brutale` reference board for theatrical architecture, memorable rooms, and dramatic reveal energy.
+- `_merge_final.html`: `Merge Final` board using the palette and lobby image from `gpt-5.4-video-game-blend.html` with the typography and paper dossier layout from `opus-4.6-guests-dossier.html`.
 
 ## Challenger boards
 

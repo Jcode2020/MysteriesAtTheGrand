@@ -195,68 +195,23 @@
         align-items: start;
       }
 
-      .conservatory {
+      .lobby-frame {
         border-radius: 16px;
         overflow: hidden;
         border: 1px solid var(--rule);
-        background:
-          linear-gradient(
-            180deg,
-            rgba(255, 255, 255, 0.9) 0%,
-            rgba(214, 227, 237, 0.3) 40%,
-            rgba(255, 255, 255, 0.7) 100%
-          );
-        position: relative;
-        min-height: 340px;
-        display: flex;
-        flex-direction: column;
-        justify-content: flex-end;
-        padding: 32px;
       }
 
-      .conservatory::before {
-        content: "";
-        position: absolute;
-        inset: 0;
-        background:
-          repeating-linear-gradient(
-            90deg,
-            transparent 0px,
-            transparent 79px,
-            rgba(184, 196, 206, 0.2) 79px,
-            rgba(184, 196, 206, 0.2) 80px
-          ),
-          repeating-linear-gradient(
-            0deg,
-            transparent 0px,
-            transparent 79px,
-            rgba(184, 196, 206, 0.15) 79px,
-            rgba(184, 196, 206, 0.15) 80px
-          );
-        pointer-events: none;
+      .lobby-photo {
+        width: 100%;
+        display: block;
       }
 
-      .conservatory .room-label {
+      .lobby-caption {
+        margin-top: 14px;
         font-family: system-ui, -apple-system, sans-serif;
-        font-size: 0.64rem;
-        letter-spacing: 0.4em;
-        text-transform: uppercase;
-        color: var(--teal);
-        margin-bottom: 10px;
-        position: relative;
-      }
-
-      .conservatory h3 {
-        position: relative;
-        font-size: 1.3rem;
-        max-width: 320px;
-      }
-
-      .conservatory p {
-        position: relative;
         font-size: 0.88rem;
-        max-width: 340px;
-        margin-top: 6px;
+        line-height: 1.7;
+        color: var(--muted);
       }
 
       .lobby-text p {
@@ -448,10 +403,18 @@
         <!-- Lobby + Description -->
         <div class="divider"><span>Lobby Visual Direction</span></div>
         <div class="lobby-block">
-          <div class="conservatory">
-            <div class="room-label">The Conservatory</div>
-            <h3>Tall glass, white stone, and a silence that feels like being observed.</h3>
-            <p>Morning light fills every corner. Nothing is hidden. That is what makes it unsettling.</p>
+          <div>
+            <div class="lobby-frame">
+              <img
+                class="lobby-photo"
+                src="file:///Users/johannesantoni/.cursor/projects/Users-johannesantoni-VS-Code-MysteriesAtTheGrand/assets/sunlit-uncanny-lobby.png"
+                alt="Bright airy Grand Hotel conservatory flooded with cool northern daylight, white marble, pale blue walls, silver mirrors"
+              />
+            </div>
+            <p class="lobby-caption">
+              Tall glass, white stone, and a silence that feels like being observed.
+              Morning light fills every corner. Nothing is hidden. That is what makes it unsettling.
+            </p>
           </div>
           <div class="lobby-text">
             <p>

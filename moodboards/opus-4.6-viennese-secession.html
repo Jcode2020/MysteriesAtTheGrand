@@ -188,44 +188,9 @@
         margin-top: 16px;
       }
 
-      .lobby-inner {
-        background:
-          repeating-linear-gradient(
-            90deg,
-            transparent 0px,
-            transparent 58px,
-            rgba(181, 154, 58, 0.08) 58px,
-            rgba(181, 154, 58, 0.08) 60px
-          ),
-          linear-gradient(180deg, #e8e4dc 0%, #d8d2c6 60%, #c8c0b2 100%);
-        min-height: 280px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-direction: column;
-        padding: 40px;
-        text-align: center;
-      }
-
-      .lobby-inner .room-label {
-        font-size: 0.68rem;
-        letter-spacing: 0.4em;
-        text-transform: uppercase;
-        color: var(--gold);
-        margin-bottom: 12px;
-      }
-
-      .lobby-inner h3 {
-        font-size: 1.1rem;
-        font-weight: 500;
-        color: var(--ink);
-        max-width: 360px;
-        margin-bottom: 8px;
-      }
-
-      .lobby-inner p {
-        font-size: 0.88rem;
-        max-width: 380px;
+      .lobby-photo {
+        width: 100%;
+        display: block;
       }
 
       .lobby-caption {
@@ -427,16 +392,17 @@
           <div>
             <h2>Lobby Visual Direction</h2>
             <div class="lobby-frame">
-              <div class="lobby-inner">
-                <div class="room-label">Grand Foyer</div>
-                <h3>Geometric marble floor, squared columns, a single gold frieze above the desk.</h3>
-                <p>No velvet. No chandeliers dripping crystal. Just proportion, material, and light.</p>
-              </div>
+              <img
+                class="lobby-photo"
+                src="file:///Users/johannesantoni/.cursor/projects/Users-johannesantoni-VS-Code-MysteriesAtTheGrand/assets/viennese-secession-lobby.png"
+                alt="Viennese Secession grand hotel lobby with geometric marble floor, squared columns, black lacquer trim, and gold frieze"
+              />
             </div>
             <p class="lobby-caption">
               The lobby should feel like entering a Josef Hoffmann interior: white stucco walls,
               black lacquered trim, squared furniture, and gold appearing only as deliberate geometric
-              accent -- a single frieze, a ruled line, a square inlay.
+              accent -- a single frieze, a ruled line, a square inlay. No velvet. No chandeliers
+              dripping crystal. Just proportion, material, and light.
             </p>
           </div>
 

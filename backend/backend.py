@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 import uuid
 import hashlib
 from datetime import datetime
@@ -582,28 +583,30 @@ def create_app(
             response = jsonify({"error": f"No room states found for room '{room_name}' in this session."})
             return _attach_session_cookie(response, session_id, app), 404
 
-        print(
-            "AGENT_DEBUG "
-            + __import__("json").dumps(
-                {
-                    "sessionId": "9b5e82",
-                    "runId": f"latest-{session_id}-{room_name}",
-                    "hypothesisId": "H6",
-                    "location": "backend.py:get_latest_room_state_endpoint",
-                    "message": "served latest room state",
-                    "data": {
-                        "room_name": room_state["room_name"],
-                        "state_id": room_state["id"],
-                        "previous_state_id": room_state["previous_state_id"],
-                        "image_media_type": room_state["image_media_type"],
-                        "room_image_base64_length": len(room_state["room_image_base64"]),
-                        "room_image_sha256": hashlib.sha256(room_state["room_image_base64"].encode("ascii")).hexdigest()[:16],
-                    },
+        debug_payload = __import__("json").dumps(
+            {
+                "sessionId": "9b5e82",
+                "runId": f"latest-{session_id}-{room_name}",
+                "hypothesisId": "H6",
+                "location": "backend.py:get_latest_room_state_endpoint",
+                "message": "served latest room state",
+                "data": {
+                    "room_name": room_state["room_name"],
+                    "state_id": room_state["id"],
+                    "previous_state_id": room_state["previous_state_id"],
+                    "image_media_type": room_state["image_media_type"],
+                    "room_image_base64_length": len(room_state["room_image_base64"]),
+                    "room_image_sha256": hashlib.sha256(room_state["room_image_base64"].encode("ascii")).hexdigest()[:16],
                 },
-                separators=(",", ":"),
-            ),
-            flush=True,
+            },
+            separators=(",", ":"),
         )
+        logger.info("AGENT_DEBUG %s", debug_payload)
+        try:
+            sys.stderr.write(f"AGENT_DEBUG {debug_payload}\n")
+            sys.stderr.flush()
+        except OSError:
+            pass
         response = jsonify(room_state)
         return _attach_session_cookie(response, session_id, app), 200
 

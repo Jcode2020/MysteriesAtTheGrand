@@ -3,6 +3,7 @@ import hashlib
 import json
 import logging
 import os
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -24,6 +25,16 @@ DEBUG_LOG_PATH = Path(
 DEBUG_SESSION_ID = "9b5e82"
 
 
+def _emit_debug_line(serialized_payload: str) -> None:
+    line = f"AGENT_DEBUG {serialized_payload}"
+    logging.getLogger("backend").info(line)
+    try:
+        sys.stderr.write(line + "\n")
+        sys.stderr.flush()
+    except OSError:
+        pass
+
+
 def _debug_log(*, run_id: str, hypothesis_id: str, location: str, message: str, data: dict[str, Any]) -> None:
     payload = {
         "sessionId": DEBUG_SESSION_ID,
@@ -35,7 +46,7 @@ def _debug_log(*, run_id: str, hypothesis_id: str, location: str, message: str, 
         "timestamp": int(time.time() * 1000),
     }
     serialized_payload = json.dumps(payload, separators=(",", ":"))
-    print(f"AGENT_DEBUG {serialized_payload}", flush=True)
+    _emit_debug_line(serialized_payload)
     try:
         DEBUG_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
         with DEBUG_LOG_PATH.open("a", encoding="utf-8") as debug_file:

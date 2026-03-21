@@ -36,8 +36,12 @@
 - The earliest state for a room can use `session_id = persistent` to act as the shared base state that every session sees first.
 - Persistent room definitions live in `db/seed/persistent/manifest.json`, and the committed images it references are the source of truth for required base states.
 - The current start-screen lobby image is seeded into `room_table` from `db/seed/persistent/images/lobby.png` as the shared persistent first `lobby` entry.
+- The start screen opening theme is served by the backend from `backend/static/audio/Secrets_of_the_Grand_Pannonia_2026-03-21T133239.mp3` at `GET /audio/opening-theme`.
 - Session-specific room states can build on top of the persistent base for that room without affecting other visitors.
 - `db/hotel_db.sqlite3` is runtime state only and should not be treated as the canonical source for required persistent rooms.
+- To delete all runtime rows while keeping the schema, run `python db/clear_hotel_db.py --yes`.
+- If you want to target a different SQLite file, use `python db/clear_hotel_db.py --database /path/to/file.sqlite3 --yes`.
+- After clearing the database, restart the backend if you want the persistent room seed data to be created again.
 
 ## Backend Room State API
 - `POST /rooms/states` creates a room snapshot inside the caller's current anonymous session. Send JSON with `room_name`, `room_image_base64`, optional `room_modifications`, optional `state_timestamp`, optional `previous_state_id`, and optional `image_media_type`.

@@ -31,7 +31,7 @@
 - Production frontend build: copy `.env.prod.example` to `.env.prod`.
 - Do not put secrets in `VITE_*` variables.
 - For production, set `FRONTEND_ORIGIN` to the exact public frontend URL so the backend only accepts browser writes from that origin.
-- `SESSION_COOKIE_SECURE=true` is required for HTTPS deployments. `SESSION_COOKIE_SAMESITE` defaults to `Lax`.
+- `SESSION_COOKIE_SECURE=true` is required for HTTPS deployments. When `FRONTEND_ORIGIN` points to a non-localhost production frontend and the cookie env vars are left empty, the backend now defaults to `SESSION_COOKIE_SECURE=true` and `SESSION_COOKIE_SAMESITE=None` so browser session state survives cross-origin API requests.
 - Set `OPENAI_API_KEY` for the CrewAI/OpenAI backend integration.
 - `OPENAI_CREW_MODEL` controls the text model used by the coordinator and handler agents.
 - `OPENAI_IMAGE_MODEL` controls the image-edit model used when a room image must change visibly.

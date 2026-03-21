@@ -223,6 +223,16 @@ def _resolve_frontend_origin() -> str:
     return ""
 
 
+def _configured_frontend_origin_looks_local(configured_origin: str) -> bool:
+    """Return whether the configured frontend origin is a localhost-style dev origin."""
+    normalized_origin = configured_origin.lower()
+    return (
+        normalized_origin.startswith("http://localhost")
+        or normalized_origin.startswith("http://127.0.0.1")
+        or normalized_origin.startswith("http://0.0.0.0")
+    )
+
+
 def _origin_matches_configured_frontend(origin: str | None, configured_origin: str) -> bool:
     """Return whether the request origin matches the configured frontend origin."""
     if not origin or not configured_origin:
@@ -247,13 +257,23 @@ def _request_origin_is_allowed(configured_origin: str) -> bool:
 
 
 def _resolve_session_cookie_secure() -> bool:
-    """Use secure cookies when explicitly enabled for HTTPS deployments."""
-    return os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true"
+    """Use secure cookies in production by default while keeping local HTTP dev simple."""
+    configured_value = os.getenv("SESSION_COOKIE_SECURE")
+    if configured_value is not None and configured_value.strip():
+        return configured_value.lower() == "true"
+
+    configured_frontend_origin = os.getenv("FRONTEND_ORIGIN", "").strip()
+    return bool(configured_frontend_origin) and not _configured_frontend_origin_looks_local(configured_frontend_origin)
 
 
 def _resolve_session_cookie_samesite() -> str:
     """Resolve the SameSite policy for the anonymous session cookie."""
-    configured_value = os.getenv("SESSION_COOKIE_SAMESITE", "Lax").strip().capitalize()
+    configured_value = os.getenv("SESSION_COOKIE_SAMESITE", "").strip().capitalize()
+    if not configured_value:
+        configured_frontend_origin = os.getenv("FRONTEND_ORIGIN", "").strip()
+        if configured_frontend_origin and not _configured_frontend_origin_looks_local(configured_frontend_origin):
+            return "None"
+        return "Lax"
     if configured_value not in {"Lax", "Strict", "None"}:
         raise ValueError("SESSION_COOKIE_SAMESITE must be one of: Lax, Strict, None")
     return configured_value

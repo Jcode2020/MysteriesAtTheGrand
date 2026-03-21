@@ -14,6 +14,6 @@ export default defineConfig({
     allowedHosts: ["localhost", "127.0.0.1"],
   },
   preview: {
-    allowedHosts: ["mysteriesatthegrand-production.up.railway.app"],
+    allowedHosts: true,
   },
 });

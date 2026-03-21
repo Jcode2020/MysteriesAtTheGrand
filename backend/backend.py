@@ -265,33 +265,52 @@ def _seed_persistent_room_states(database_path: Path, seed_entries: list[dict[st
 
 def _resolve_frontend_origin() -> str:
     """Build the allowed frontend origin for local development requests."""
-    frontend_origin = os.getenv("FRONTEND_ORIGIN")
+    frontend_origin = os.getenv("FRONTEND_ORIGIN", "").strip()
     if frontend_origin:
-        return frontend_origin
+        return frontend_origin.rstrip("/")
 
-    frontend_host = os.getenv("FRONTEND_HOST")
-    frontend_port = os.getenv("FRONTEND_PORT")
+    frontend_host = os.getenv("FRONTEND_HOST", "").strip()
+    frontend_port = os.getenv("FRONTEND_PORT", "").strip()
     if frontend_host and frontend_port:
         return f"http://{frontend_host}:{frontend_port}"
 
-    return "*"
+    return ""
+
+
+def _origin_matches_configured_frontend(origin: str | None, configured_origin: str) -> bool:
+    """Return whether the request origin matches the configured frontend origin."""
+    if not origin or not configured_origin:
+        return False
+    return origin.rstrip("/") == configured_origin.rstrip("/")
 
 
 def _resolve_response_origin(configured_origin: str) -> str:
-    """Choose the response origin that matches credentialed browser requests."""
-    if configured_origin != "*":
-        return configured_origin
-
+    """Choose the response origin that is allowed to receive credentialed responses."""
     request_origin = request.headers.get("Origin")
-    if request_origin:
-        return request_origin
+    if _origin_matches_configured_frontend(request_origin, configured_origin):
+        return configured_origin
+    return ""
 
-    return "null"
+
+def _request_origin_is_allowed(configured_origin: str) -> bool:
+    """Allow non-browser requests while enforcing the configured browser origin."""
+    request_origin = request.headers.get("Origin")
+    if request_origin is None:
+        return True
+    return _origin_matches_configured_frontend(request_origin, configured_origin)
 
 
 def _resolve_session_cookie_secure() -> bool:
     """Use secure cookies when explicitly enabled for HTTPS deployments."""
     return os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true"
+
+
+def _resolve_session_cookie_samesite() -> str:
+    """Resolve the SameSite policy for the anonymous session cookie."""
+    configured_value = os.getenv("SESSION_COOKIE_SAMESITE", "Lax").strip().capitalize()
+    if configured_value not in {"Lax", "Strict", "None"}:
+        raise ValueError("SESSION_COOKIE_SAMESITE must be one of: Lax, Strict, None")
+    return configured_value
 
 
 def _current_timestamp() -> str:
@@ -391,7 +410,7 @@ def _attach_session_cookie(response: Response, session_id: str, app: Flask) -> R
             SESSION_COOKIE_NAME,
             session_id,
             httponly=True,
-            samesite="Lax",
+            samesite=app.config["SESSION_COOKIE_SAMESITE"],
             secure=app.config["SESSION_COOKIE_SECURE"],
             max_age=60 * 60 * 24 * 30,
         )
@@ -460,18 +479,35 @@ def create_app(
     app.config["FRONTEND_ORIGIN"] = _resolve_frontend_origin()
     app.config["OPENING_AUDIO_PATH"] = resolved_opening_audio_path
     app.config["SESSION_COOKIE_SECURE"] = _resolve_session_cookie_secure()
+    app.config["SESSION_COOKIE_SAMESITE"] = _resolve_session_cookie_samesite()
     app.config["PERSISTENT_ROOM_SEED_MANIFEST_PATH"] = resolved_seed_manifest_path
+
+    if app.config["SESSION_COOKIE_SAMESITE"] == "None" and not app.config["SESSION_COOKIE_SECURE"]:
+        raise ValueError("SESSION_COOKIE_SAMESITE=None requires SESSION_COOKIE_SECURE=true")
 
     _initialize_database(resolved_database_path)
     _seed_persistent_room_states(resolved_database_path, seed_entries)
 
     @app.after_request
     def add_cors_headers(response: Any) -> Any:
-        response.headers["Access-Control-Allow-Origin"] = _resolve_response_origin(app.config["FRONTEND_ORIGIN"])
-        response.headers["Vary"] = "Origin"
-        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
-        response.headers["Access-Control-Allow-Methods"] = "GET,POST,OPTIONS"
-        response.headers["Access-Control-Allow-Credentials"] = "true"
+        allowed_origin = _resolve_response_origin(app.config["FRONTEND_ORIGIN"])
+        if allowed_origin:
+            response.headers["Access-Control-Allow-Origin"] = allowed_origin
+            response.headers["Vary"] = "Origin"
+            response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+            response.headers["Access-Control-Allow-Methods"] = "GET,POST,OPTIONS"
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+
+        response.headers.setdefault("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+
+        if request.headers.get("X-Forwarded-Proto", request.scheme) == "https":
+            response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+
+        if request.path.startswith("/rooms/"):
+            response.headers.setdefault("Cache-Control", "no-store")
         return response
 
     @app.route("/rooms/<string:room_name>/latest", methods=["OPTIONS"])
@@ -502,6 +538,11 @@ def create_app(
     @app.post("/rooms/states")
     def create_room_state() -> tuple[object, int]:
         session_id = _ensure_session_id()
+        if not _request_origin_is_allowed(app.config["FRONTEND_ORIGIN"]):
+            logger.warning("Rejected room state write from unexpected origin: %s", request.headers.get("Origin"))
+            response = jsonify({"error": "Request origin is not allowed."})
+            return _attach_session_cookie(response, session_id, app), 403
+
         payload = request.get_json(silent=True)
         if not isinstance(payload, dict):
             response = jsonify({"error": "Request body must be valid JSON."})
@@ -603,10 +644,10 @@ app = create_app()
 
 if __name__ == "__main__":
     host = os.getenv("BACKEND_HOST", "127.0.0.1")
-    port_value = os.getenv("BACKEND_PORT", "5000")
+    port_value = os.getenv("PORT") or os.getenv("BACKEND_PORT", "5000")
     try:
         port = int(port_value)
     except ValueError as error:
-        raise ValueError("BACKEND_PORT must be an integer") from error
+        raise ValueError("PORT or BACKEND_PORT must be an integer") from error
 
     app.run(host=host, port=port)

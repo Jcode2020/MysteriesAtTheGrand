@@ -9,6 +9,7 @@
 - Backend dependencies are defined only in `backend/requirements.txt`.
 - Frontend dependencies are defined only in `frontend/package.json`.
 - The first room-state database schema lives in `db/schema.sql`.
+- Production backend serving uses Gunicorn.
 
 ## Install
 - Backend: `pip install -r backend/requirements.txt`
@@ -26,6 +27,13 @@
 - Dev: copy `.env.dev.example` to `.env.dev`.
 - Production frontend build: copy `.env.prod.example` to `.env.prod`.
 - Do not put secrets in `VITE_*` variables.
+- For production, set `FRONTEND_ORIGIN` to the exact public frontend URL so the backend only accepts browser writes from that origin.
+- `SESSION_COOKIE_SECURE=true` is required for HTTPS deployments. `SESSION_COOKIE_SAMESITE` defaults to `Lax`.
+
+## Production Notes
+- Railway can provide the backend port via `PORT`; the backend also still accepts `BACKEND_PORT` for local development.
+- Use Gunicorn in production instead of the Flask development server. Example: `gunicorn --chdir backend --bind 0.0.0.0:$PORT backend:app`
+- When serving the frontend with `vite preview`, host allowlisting is now open in preview mode so generated Railway domains do not need to be hard-coded.
 
 ## Room State Database
 - `room_table` stores one snapshot row per room state, scoped to a `session_id`.
@@ -47,3 +55,4 @@
 - `POST /rooms/states` creates a room snapshot inside the caller's current anonymous session. Send JSON with `room_name`, `room_image_base64`, optional `room_modifications`, optional `state_timestamp`, optional `previous_state_id`, and optional `image_media_type`.
 - `GET /rooms/<room_name>/states` returns the full timeline for a room inside the caller's current anonymous session, including that room's shared persistent base state first when one exists. Add `?include_images=true` to include base64 image data in the response.
 - `GET /rooms/<room_name>/latest` returns the latest snapshot for a room in the caller's current anonymous session, including the image. If the session has not changed the room yet, it falls back to that room's persistent base state when one exists.
+- Browser `POST /rooms/states` requests must come from the configured `FRONTEND_ORIGIN`; cross-origin writes are rejected.

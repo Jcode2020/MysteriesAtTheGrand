@@ -20,6 +20,7 @@
 ## Run Dev
 - Start both backend and frontend with `./startDevFrontAndBackend.sh`.
 - The script reads `.env.dev`, then launches Flask and Vite on the configured hosts/ports.
+- The backend always logs debugging activity to the terminal. When the repo-root `logs/` directory exists and is writable, the backend also mirrors those logs into a timestamped logfile there; otherwise it falls back to terminal-only logging.
 - The backend will auto-create the local SQLite database at `db/hotel_db.sqlite3` unless `ROOM_DB_PATH` is set.
 - Persistent room bootstrap data comes from `backend/seed/persistent/manifest.json` unless `PERSISTENT_ROOM_SEED_MANIFEST_PATH` is set.
 - Set `VITE_BACKEND_URL` in `.env.dev` if you want an explicit frontend override for the backend API. When it is left empty during local development, the frontend now falls back to the same `BACKEND_HOST` and `BACKEND_PORT` values used by `startDevFrontAndBackend.sh`.

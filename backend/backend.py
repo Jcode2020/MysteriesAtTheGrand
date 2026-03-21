@@ -1,7 +1,9 @@
 import logging
 import os
 import uuid
+from datetime import datetime
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 
 from flask import Flask, Response, g, jsonify, request, send_file
@@ -28,19 +30,114 @@ DEFAULT_PERSISTENT_ROOM_SEED_MANIFEST_PATH = BACKEND_DIR / "seed" / "persistent"
 DEFAULT_OPENING_AUDIO_PATH = BACKEND_DIR / "static" / "audio" / "Secrets_of_the_Grand_Pannonia_2026-03-21T133239.mp3"
 DEFAULT_PRIVACY_NOTICE_PATH = BACKEND_DIR / "legal" / "privacy-notice.md"
 SESSION_COOKIE_NAME = "grand_pannonia_session_id"
+LOG_FORMAT = "[%(asctime)s] %(levelname)s - %(message)s"
+STREAM_HANDLER_NAME = "grand_pannonia_backend_stream"
+FILE_HANDLER_NAME = "grand_pannonia_backend_file"
+
+_ACTIVE_LOG_FILE_PATH: Path | None = None
 
 logger = logging.getLogger(__name__)
 
 
-def _configure_logging() -> None:
-    """Set up a simple backend logger for startup and database events."""
-    if logging.getLogger().handlers:
-        return
+def _get_logger_handler(handler_name: str) -> logging.Handler | None:
+    """Return one configured backend logger handler by its stable name."""
+    return next((handler for handler in logger.handlers if handler.get_name() == handler_name), None)
 
-    logging.basicConfig(
-        level=logging.INFO,
-        format="[%(asctime)s] %(levelname)s - %(message)s",
+
+def _resolve_log_file_path() -> Path | None:
+    """Return the active logfile path when the repo-root logs directory is usable."""
+    global _ACTIVE_LOG_FILE_PATH
+
+    logs_directory = (REPO_ROOT_DIR / "logs").resolve()
+    if not logs_directory.is_dir():
+        _ACTIVE_LOG_FILE_PATH = None
+        return None
+    if not os.access(logs_directory, os.W_OK):
+        _ACTIVE_LOG_FILE_PATH = None
+        return None
+
+    if _ACTIVE_LOG_FILE_PATH is None or _ACTIVE_LOG_FILE_PATH.parent != logs_directory:
+        timestamp = datetime.now().strftime("%y%m%d_%H%M%S")
+        _ACTIVE_LOG_FILE_PATH = logs_directory / f"{timestamp}_logfile.log"
+
+    return _ACTIVE_LOG_FILE_PATH
+
+
+def _configure_logging() -> Path | None:
+    """Configure backend logging for terminal output and optional repo-root file output."""
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+    formatter = logging.Formatter(LOG_FORMAT)
+
+    stream_handler = _get_logger_handler(STREAM_HANDLER_NAME)
+    if stream_handler is None:
+        stream_handler = logging.StreamHandler()
+        stream_handler.set_name(STREAM_HANDLER_NAME)
+        stream_handler.setLevel(logging.INFO)
+        stream_handler.setFormatter(formatter)
+        logger.addHandler(stream_handler)
+
+    configured_log_file_path = _resolve_log_file_path()
+    existing_file_handler = _get_logger_handler(FILE_HANDLER_NAME)
+    existing_file_path = (
+        Path(existing_file_handler.baseFilename).resolve()
+        if isinstance(existing_file_handler, logging.FileHandler)
+        else None
     )
+
+    if configured_log_file_path is None:
+        if existing_file_handler is not None:
+            logger.removeHandler(existing_file_handler)
+            existing_file_handler.close()
+        return None
+
+    if existing_file_path != configured_log_file_path.resolve():
+        if existing_file_handler is not None:
+            logger.removeHandler(existing_file_handler)
+            existing_file_handler.close()
+
+        file_handler = logging.FileHandler(configured_log_file_path, encoding="utf-8")
+        file_handler.set_name(FILE_HANDLER_NAME)
+        file_handler.setLevel(logging.INFO)
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
+
+    return configured_log_file_path
+
+
+def _configure_flask_logging(app: Flask) -> None:
+    """Keep Flask's named app logger aligned without mutating shared handlers."""
+    app.logger.setLevel(logger.level)
+    if app.logger.name != logger.name:
+        app.logger.propagate = True
+
+
+def _configure_werkzeug_logging() -> None:
+    """Avoid duplicate request lines once the app emits its own request logs."""
+    werkzeug_logger = logging.getLogger("werkzeug")
+    werkzeug_logger.setLevel(logging.WARNING)
+
+
+def _log_request_summary(response: Any, started_at: float | None) -> None:
+    """Emit one low-risk request summary for backend debugging."""
+    duration_ms = 0.0
+    if started_at is not None:
+        duration_ms = (perf_counter() - started_at) * 1000
+
+    origin = request.headers.get("Origin")
+    remote_addr = request.headers.get("X-Forwarded-For", request.remote_addr or "-")
+    request_summary = (
+        "%s %s -> %s in %.2fms (remote=%s%s)"
+        % (
+            request.method,
+            request.path,
+            response.status_code,
+            duration_ms,
+            remote_addr,
+            f", origin={origin}" if origin else "",
+        )
+    )
+    logger.info(request_summary)
 
 
 def _resolve_database_path(database_path: str | Path | None = None) -> Path:
@@ -224,9 +321,11 @@ def create_app(
     privacy_notice_path: str | Path | None = None,
 ) -> Flask:
     """Create the Flask app and wire it to the SQLite room-state database."""
-    _configure_logging()
+    configured_log_file_path = _configure_logging()
 
     app = Flask(__name__)
+    _configure_flask_logging(app)
+    _configure_werkzeug_logging()
     resolved_database_path = _resolve_database_path(database_path)
     resolved_schema_path = _resolve_schema_path(schema_path)
     resolved_seed_manifest_path = _resolve_seed_manifest_path(seed_manifest_path)
@@ -249,9 +348,19 @@ def create_app(
 
     initialize_database(resolved_database_path, resolved_schema_path)
     seed_persistent_room_states(resolved_database_path, app.config["PERSISTENT_ROOM_SEED_ENTRIES"])
+    logger.info("Initialized room state database at %s", resolved_database_path)
+    if configured_log_file_path is not None:
+        logger.info("Backend logging also writes to %s", configured_log_file_path)
+    else:
+        logger.info("Repo-root logs directory unavailable; backend logging will use terminal output only.")
+
+    @app.before_request
+    def mark_request_start_time() -> None:
+        g.request_started_at = perf_counter()
 
     @app.after_request
     def add_cors_headers(response: Any) -> Any:
+        _log_request_summary(response, getattr(g, "request_started_at", None))
         allowed_origin = _resolve_response_origin(app.config["FRONTEND_ORIGIN"])
         if allowed_origin:
             response.headers["Access-Control-Allow-Origin"] = allowed_origin

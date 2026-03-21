@@ -1,5 +1,6 @@
 import base64
 import json
+import logging
 import sqlite3
 import tempfile
 import unittest
@@ -7,6 +8,7 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
+import backend as backend_module
 from backend import create_app
 from db_handlers import get_crew_conversation, upsert_crew_conversation
 
@@ -38,6 +40,16 @@ class BackendApiTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
+
+    def _reset_backend_logger(self) -> None:
+        """Remove the named backend handlers so each logging test starts cleanly."""
+        for handler_name in [backend_module.STREAM_HANDLER_NAME, backend_module.FILE_HANDLER_NAME]:
+            handler = backend_module._get_logger_handler(handler_name)
+            if handler is None:
+                continue
+            backend_module.logger.removeHandler(handler)
+            handler.close()
+        backend_module._ACTIVE_LOG_FILE_PATH = None
 
     def _write_seed_manifest(self) -> Path:
         seed_root = Path(self.temp_dir.name) / "seed"
@@ -286,6 +298,87 @@ class BackendApiTests(unittest.TestCase):
         self.assertIn('"content": "Welcome "', response_text)
         self.assertIn("event: complete", response_text)
         mock_stream_turn.assert_called_once()
+
+    def test_logging_falls_back_to_terminal_when_repo_logs_directory_is_missing(self) -> None:
+        self._reset_backend_logger()
+
+        with patch.object(backend_module, "REPO_ROOT_DIR", Path(self.temp_dir.name)):
+            create_app(
+                database_path=self.database_path,
+                seed_manifest_path=self.seed_manifest_path,
+                opening_audio_path=self.opening_audio_path,
+                privacy_notice_path=self.privacy_notice_path,
+            )
+
+        self.assertIsNotNone(backend_module._get_logger_handler(backend_module.STREAM_HANDLER_NAME))
+        self.assertIsNone(backend_module._get_logger_handler(backend_module.FILE_HANDLER_NAME))
+
+    def test_logging_adds_one_file_handler_when_repo_logs_directory_is_available(self) -> None:
+        self._reset_backend_logger()
+        logs_directory = Path(self.temp_dir.name) / "logs"
+        logs_directory.mkdir(parents=True, exist_ok=True)
+
+        with patch.object(backend_module, "REPO_ROOT_DIR", Path(self.temp_dir.name)):
+            create_app(
+                database_path=self.database_path,
+                seed_manifest_path=self.seed_manifest_path,
+                opening_audio_path=self.opening_audio_path,
+                privacy_notice_path=self.privacy_notice_path,
+            )
+            create_app(
+                database_path=self.database_path,
+                seed_manifest_path=self.seed_manifest_path,
+                opening_audio_path=self.opening_audio_path,
+                privacy_notice_path=self.privacy_notice_path,
+            )
+
+        configured_handlers = {
+            handler.get_name(): handler
+            for handler in backend_module.logger.handlers
+            if handler.get_name() in {backend_module.STREAM_HANDLER_NAME, backend_module.FILE_HANDLER_NAME}
+        }
+        self.assertEqual(set(configured_handlers), {backend_module.STREAM_HANDLER_NAME, backend_module.FILE_HANDLER_NAME})
+        self.assertEqual(
+            len([handler for handler in backend_module.logger.handlers if handler.get_name() == backend_module.STREAM_HANDLER_NAME]),
+            1,
+        )
+        self.assertEqual(
+            len([handler for handler in backend_module.logger.handlers if handler.get_name() == backend_module.FILE_HANDLER_NAME]),
+            1,
+        )
+
+        file_handler = configured_handlers[backend_module.FILE_HANDLER_NAME]
+        self.assertIsInstance(file_handler, logging.FileHandler)
+        file_handler.flush()
+        logfile_path = Path(file_handler.baseFilename)
+        self.assertEqual(logfile_path.parent.resolve(), logs_directory.resolve())
+        self.assertRegex(logfile_path.name, r"^\d{6}_\d{6}_logfile\.log$")
+        self.assertTrue(logfile_path.exists())
+
+    @patch("crew_coordinator.CrewCoordinator.stream_turn")
+    def test_request_logging_omits_chat_message_bodies(self, mock_stream_turn: Any) -> None:
+        self._reset_backend_logger()
+        self.client.get("/session/state")
+        secret_message = "do not log this secret phrase"
+        mock_stream_turn.return_value = iter(
+            [
+                {"type": "delta", "content": "Welcome back."},
+                {
+                    "type": "complete",
+                    "content": "Welcome back.",
+                    "openai_conversation_id": "conv_456",
+                    "latest_response_id": "resp_456",
+                },
+            ]
+        )
+
+        with self.assertLogs(backend_module.logger.name, level="INFO") as captured_logs:
+            response = self.client.post("/chat/stream", json={"message": secret_message})
+
+        self.assertEqual(response.status_code, 200)
+        combined_logs = "\n".join(captured_logs.output)
+        self.assertIn("POST /chat/stream -> 200", combined_logs)
+        self.assertNotIn(secret_message, combined_logs)
 
 
 if __name__ == "__main__":

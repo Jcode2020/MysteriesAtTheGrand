@@ -8,6 +8,7 @@
 ## Dependencies
 - Backend dependencies are defined only in `backend/requirements.txt`.
 - Frontend dependencies are defined only in `frontend/package.json`.
+- The frontend UI now uses Tailwind CSS alongside React and Vite.
 - The first room-state database schema lives in `backend/schema.sql`.
 - Production backend serving uses Gunicorn.
 

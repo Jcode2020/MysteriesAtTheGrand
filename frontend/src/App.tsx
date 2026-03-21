@@ -1,9 +1,14 @@
 import React, { useEffect, useState } from "react";
 
+import AudioToggleButton from "./AudioToggleButton";
+import GameShell from "./GameShell";
+import OpeningAudioPlayer from "./OpeningAudioPlayer";
 import StartScreen from "./StartScreen";
 
 declare const __APP_BACKEND_HOST__: string;
 declare const __APP_BACKEND_PORT__: string;
+
+const HAS_STARTED_STORAGE_KEY = "grand-pannonia-has-started";
 
 type RoomStateResponse = {
   image_media_type: string;
@@ -26,12 +31,24 @@ function getBackendBaseUrl(): string {
 }
 
 function App() {
-  const [hasStarted, setHasStarted] = useState(false);
+  const [hasStarted, setHasStarted] = useState<boolean>(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    return window.sessionStorage.getItem(HAS_STARTED_STORAGE_KEY) === "true";
+  });
   const [isAudioMuted, setIsAudioMuted] = useState(true);
+  const [isInventoryOpen, setIsInventoryOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const [lobbyImageUrl, setLobbyImageUrl] = useState<string | null>(null);
   const [isLobbyImageLoading, setIsLobbyImageLoading] = useState(true);
   const backendBaseUrl = getBackendBaseUrl();
   const openingThemeUrl = `${backendBaseUrl}/audio/opening-theme`;
+
+  useEffect(() => {
+    window.sessionStorage.setItem(HAS_STARTED_STORAGE_KEY, String(hasStarted));
+  }, [hasStarted]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -68,30 +85,28 @@ function App() {
     };
   }, [backendBaseUrl]);
 
-  if (!hasStarted) {
-    return (
-      <StartScreen
-        audioUrl={openingThemeUrl}
-        backgroundImageUrl={lobbyImageUrl}
-        isAudioMuted={isAudioMuted}
-        isLoadingImage={isLobbyImageLoading}
-        onStart={() => setHasStarted(true)}
-        onToggleAudio={() => setIsAudioMuted((currentValue) => !currentValue)}
-      />
-    );
-  }
-
   return (
-    <main className="app-shell">
-      <section className="app-placeholder" aria-labelledby="game-placeholder-title">
-        <p className="app-placeholder__eyebrow">Grand Pannonia Hotel</p>
-        <h1 id="game-placeholder-title">The mystery awaits behind the lobby doors.</h1>
-        <p className="app-placeholder__copy">
-          The welcome screen is now active. The next step is to connect this state to the first playable
-          scene.
-        </p>
-      </section>
-    </main>
+    <>
+      <OpeningAudioPlayer audioUrl={openingThemeUrl} isMuted={isAudioMuted} />
+      <AudioToggleButton isMuted={isAudioMuted} onToggle={() => setIsAudioMuted((currentValue) => !currentValue)} />
+
+      {hasStarted ? (
+        <GameShell
+          backgroundImageUrl={lobbyImageUrl}
+          isLoadingImage={isLobbyImageLoading}
+          isInventoryOpen={isInventoryOpen}
+          isChatOpen={isChatOpen}
+          onToggleInventory={() => setIsInventoryOpen((currentValue) => !currentValue)}
+          onToggleChat={() => setIsChatOpen((currentValue) => !currentValue)}
+        />
+      ) : (
+        <StartScreen
+          backgroundImageUrl={lobbyImageUrl}
+          isLoadingImage={isLobbyImageLoading}
+          onStart={() => setHasStarted(true)}
+        />
+      )}
+    </>
   );
 }
 

@@ -1,175 +1,51 @@
-import React, { useCallback, useEffect, useRef } from "react";
+import React from "react";
 
 type StartScreenProps = {
-  audioUrl: string;
   backgroundImageUrl: string | null;
-  isAudioMuted: boolean;
   isLoadingImage: boolean;
   onStart: () => void;
-  onToggleAudio: () => void;
 };
 
-function AudioOnIcon() {
+function StartScreen({ backgroundImageUrl, isLoadingImage, onStart }: StartScreenProps) {
   return (
-    <svg aria-hidden="true" className="audio-toggle__icon" viewBox="0 0 24 24">
-      <path
-        d="M5 14.5V9.5H8.5L13 5.75V18.25L8.5 14.5H5Z"
-        fill="none"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.6"
-      />
-      <path
-        d="M16 9C17.3 10.1 18 11.47 18 13C18 14.53 17.3 15.9 16 17"
-        fill="none"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.6"
-      />
-      <path
-        d="M18 6.5C20 8.2 21 10.37 21 13C21 15.63 20 17.8 18 19.5"
-        fill="none"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.6"
-      />
-    </svg>
-  );
-}
-
-function AudioOffIcon() {
-  return (
-    <svg aria-hidden="true" className="audio-toggle__icon" viewBox="0 0 24 24">
-      <path
-        d="M5 14.5V9.5H8.5L13 5.75V18.25L8.5 14.5H5Z"
-        fill="none"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.6"
-      />
-      <path
-        d="M16 9L21 17"
-        fill="none"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.6"
-      />
-      <path
-        d="M21 9L16 17"
-        fill="none"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.6"
-      />
-    </svg>
-  );
-}
-
-function StartScreen({
-  audioUrl,
-  backgroundImageUrl,
-  isAudioMuted,
-  isLoadingImage,
-  onStart,
-  onToggleAudio,
-}: StartScreenProps) {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const shouldKeepTryingToPlayRef = useRef(!isAudioMuted);
-
-  const attemptPlayback = useCallback(() => {
-    const audioElement = audioRef.current;
-    if (audioElement === null || shouldKeepTryingToPlayRef.current === false) {
-      return;
-    }
-
-    void audioElement.play().catch((error: unknown) => {
-      console.warn("Opening theme autoplay was blocked by the browser.", error);
-    });
-  }, []);
-
-  useEffect(() => {
-    const audioElement = audioRef.current;
-    if (audioElement === null) {
-      return;
-    }
-
-    if (isAudioMuted) {
-      shouldKeepTryingToPlayRef.current = false;
-      audioElement.muted = true;
-      audioElement.pause();
-      return;
-    }
-
-    shouldKeepTryingToPlayRef.current = true;
-    audioElement.muted = false;
-    attemptPlayback();
-  }, [attemptPlayback, audioUrl, isAudioMuted]);
-
-  useEffect(() => {
-    function resumeAudioFromFirstInteraction() {
-      attemptPlayback();
-    }
-
-    window.addEventListener("pointerdown", resumeAudioFromFirstInteraction);
-    window.addEventListener("keydown", resumeAudioFromFirstInteraction);
-
-    return () => {
-      window.removeEventListener("pointerdown", resumeAudioFromFirstInteraction);
-      window.removeEventListener("keydown", resumeAudioFromFirstInteraction);
-    };
-  }, [attemptPlayback]);
-
-  return (
-    <main className="start-screen">
-      <audio
-        ref={audioRef}
-        src={audioUrl}
-        loop
-        preload="auto"
-        autoPlay
-        playsInline
-        onCanPlayThrough={attemptPlayback}
-        aria-hidden="true"
-      />
-
+    <main className="relative min-h-screen overflow-hidden bg-[#120d0a] text-parchment">
       {backgroundImageUrl ? (
         <img
-          className="start-screen__background"
+          className="absolute inset-0 h-full w-full scale-[1.02] object-cover object-center"
           src={backgroundImageUrl}
           alt="Grand hotel lobby with warm chandelier light, marble floors, and a sweeping staircase."
         />
       ) : null}
 
-      <div className="start-screen__overlay" />
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(20,14,11,0.34)_0%,rgba(20,14,11,0.5)_35%,rgba(20,14,11,0.72)_100%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(20,14,11,0.18)_44%,rgba(20,14,11,0.62)_100%)]" />
 
-      <button
-        type="button"
-        className="audio-toggle"
-        aria-label={isAudioMuted ? "Turn audio on" : "Turn audio off"}
-        aria-pressed={!isAudioMuted}
-        onClick={onToggleAudio}
+      <section
+        className="relative z-10 grid min-h-screen justify-items-center px-5 py-6"
+        aria-labelledby="start-screen-title"
+        style={{ gridTemplateRows: "1fr auto" }}
       >
-        <span className="sr-only">{isAudioMuted ? "Audio is off" : "Audio is on"}</span>
-        {isAudioMuted ? <AudioOffIcon /> : <AudioOnIcon />}
-      </button>
-
-      <section className="start-screen__content" aria-labelledby="start-screen-title">
-        <div className="start-screen__title-wrap">
-          <p className="start-screen__eyebrow">Welcome to</p>
-          <h1 id="start-screen-title" className="start-screen__title">
+        <div className="mt-[min(10dvh,5rem)] self-center text-center drop-shadow-[0_10px_28px_rgba(0,0,0,0.38)]">
+          <p className="mb-3 text-[clamp(0.8rem,1vw+0.65rem,1rem)] uppercase tracking-[0.32em] text-white/82">
+            Welcome to
+          </p>
+          <h1
+            id="start-screen-title"
+            className="mx-auto max-w-[10ch] font-display text-[clamp(2.9rem,7vw,5.75rem)] leading-[1.02]"
+          >
             Grand Pannonia Hotel
           </h1>
-          {isLoadingImage ? <p className="start-screen__status">Preparing the lobby...</p> : null}
+          {isLoadingImage ? (
+            <p className="mt-4 text-[0.82rem] uppercase tracking-[0.16em] text-white/74">Preparing the lobby...</p>
+          ) : null}
         </div>
 
-        <button type="button" className="start-screen__button" onClick={onStart}>
-          START
+        <button
+          type="button"
+          className="mb-[clamp(2rem,9dvh,4.75rem)] min-h-14 min-w-[min(18rem,calc(100vw-3rem))] rounded-full border border-white/22 bg-[linear-gradient(180deg,rgba(111,36,48,0.96)_0%,rgba(79,23,34,0.98)_100%)] px-8 py-4 text-base font-medium uppercase tracking-[0.34em] text-parchment shadow-[0_18px_40px_rgba(0,0,0,0.28)] transition duration-200 hover:-translate-y-px hover:shadow-[0_22px_42px_rgba(0,0,0,0.34)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-parchment"
+          onClick={onStart}
+        >
+          Start
         </button>
       </section>
     </main>

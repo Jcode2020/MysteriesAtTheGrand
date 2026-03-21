@@ -169,6 +169,7 @@ The player should feel:
 - Mobile: `< 640px`
 - Tablet: `640px - 1024px`
 - Desktop: `> 1024px`
+- Current implementation priority: desktop-first. Mobile adaptation is planned for a later phase.
 
 ## Layout Patterns
 
@@ -193,7 +194,7 @@ The player should feel:
 - Score screens should feel ceremonial, like a verdict, guest folio, or private hotel report.
 
 ## Implementation Notes
-- Follow mobile-first layout decisions.
+- Follow the currently approved delivery priority: desktop-first for the active prototype phase, then adapt for mobile in a later pass.
 - Use Tailwind utility classes in service of this design system.
 - Prefer warm neutrals over grayscale defaults.
 - Test readability carefully on smaller screens and lower-brightness environments.

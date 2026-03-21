@@ -1,228 +1,65 @@
 @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Playfair+Display:wght@500;600&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Playfair Display", Georgia, serif;
+  --font-body: "IBM Plex Mono", "Courier New", monospace;
+  --color-parchment: #f3eadf;
+  --color-ledger: #e9d8c0;
+  --color-guest-paper: #fcf6ee;
+  --color-aged-gold: #b08a3e;
+  --color-burgundy-velvet: #6f2430;
+  --color-parlor-green: #31463a;
+  --color-walnut-ink: #2d1d16;
+  --color-warm-taupe: #6f584b;
+}
 
 :root {
   color-scheme: dark;
-  font-family: "IBM Plex Mono", "Courier New", monospace;
-  color: #fcf6ee;
-  background-color: #120d0a;
-  --parchment: #f3eadf;
-  --gold: #b08a3e;
-  --burgundy: #6f2430;
-  --forest: #31463a;
-  --walnut: #2d1d16;
-  --warm-shadow: rgba(18, 13, 10, 0.72);
-  --button-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
-  --focus-ring: rgba(243, 234, 223, 0.85);
-}
-
-* {
-  box-sizing: border-box;
-}
-
-html,
-body,
-#root {
-  min-height: 100%;
-}
-
-body {
-  margin: 0;
-  background:
+  --page-background:
     radial-gradient(circle at top, rgba(176, 138, 62, 0.22), transparent 32%),
     linear-gradient(180deg, #281b15 0%, #120d0a 100%);
 }
 
-button,
-input,
-textarea,
-select {
-  font: inherit;
-}
+@layer base {
+  *,
+  ::before,
+  ::after {
+    box-sizing: border-box;
+  }
 
-button {
-  -webkit-appearance: none;
-  appearance: none;
-  border: 0;
-  cursor: pointer;
-}
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
 
-.start-screen {
-  position: relative;
-  min-height: 100vh;
-  min-height: 100dvh;
-  overflow: hidden;
-  background: #120d0a;
-}
+  body {
+    margin: 0;
+    background: var(--page-background);
+    font-family: var(--font-body);
+    color: var(--color-parchment);
+    text-rendering: optimizeLegibility;
+  }
 
-.start-screen__background {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
-  transform: scale(1.02);
-}
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
 
-.start-screen__overlay {
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(180deg, rgba(20, 14, 11, 0.34) 0%, rgba(20, 14, 11, 0.5) 35%, rgba(20, 14, 11, 0.72) 100%),
-    radial-gradient(circle at center, transparent 0%, rgba(20, 14, 11, 0.18) 44%, rgba(20, 14, 11, 0.62) 100%);
-}
+  button {
+    -webkit-appearance: none;
+    appearance: none;
+    border: 0;
+    cursor: pointer;
+  }
 
-.start-screen__content {
-  position: relative;
-  z-index: 1;
-  min-height: 100vh;
-  min-height: 100dvh;
-  padding: clamp(1.25rem, 3vw, 2rem);
-  display: grid;
-  grid-template-rows: 1fr auto;
-  justify-items: center;
-}
-
-.start-screen__title-wrap {
-  align-self: center;
-  margin-top: min(10dvh, 5rem);
-  text-align: center;
-  text-shadow: 0 10px 28px rgba(0, 0, 0, 0.38);
-}
-
-.start-screen__eyebrow {
-  margin: 0 0 0.75rem;
-  color: rgba(252, 246, 238, 0.82);
-  font-size: clamp(0.8rem, 1vw + 0.65rem, 1rem);
-  letter-spacing: 0.32em;
-  text-transform: uppercase;
-}
-
-.start-screen__status {
-  margin: 1rem 0 0;
-  color: rgba(252, 246, 238, 0.74);
-  font-size: 0.82rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-
-.start-screen__title {
-  margin: 0;
-  max-width: 10ch;
-  color: var(--parchment);
-  font-family: "Playfair Display", Georgia, serif;
-  font-size: clamp(2.9rem, 7vw, 5.75rem);
-  font-weight: 600;
-  line-height: 1.02;
-}
-
-.start-screen__button {
-  align-self: end;
-  margin-bottom: clamp(2rem, 9dvh, 4.75rem);
-  min-width: min(18rem, calc(100vw - 3rem));
-  min-height: 3.5rem;
-  padding: 0.95rem 2rem;
-  border: 1px solid rgba(243, 234, 223, 0.22);
-  border-radius: 999px;
-  background:
-    linear-gradient(180deg, rgba(111, 36, 48, 0.96) 0%, rgba(79, 23, 34, 0.98) 100%);
-  box-shadow: var(--button-shadow);
-  color: var(--parchment);
-  font-size: 1rem;
-  font-weight: 500;
-  letter-spacing: 0.34em;
-  text-transform: uppercase;
-  transition:
-    transform 220ms ease,
-    box-shadow 220ms ease,
-    background-color 220ms ease;
-}
-
-.start-screen__button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 22px 42px rgba(0, 0, 0, 0.34);
-}
-
-.start-screen__button:focus-visible,
-.audio-toggle:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 3px;
-}
-
-.audio-toggle {
-  position: absolute;
-  top: clamp(1rem, 2vw, 1.5rem);
-  right: clamp(1rem, 2vw, 1.5rem);
-  z-index: 2;
-  width: 3rem;
-  height: 3rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid rgba(243, 234, 223, 0.2);
-  border-radius: 999px;
-  background: rgba(22, 16, 13, 0.54);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-  color: var(--parchment);
-  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.26);
-  transition:
-    transform 220ms ease,
-    background-color 220ms ease;
-}
-
-.audio-toggle:hover {
-  transform: translateY(-1px);
-  background: rgba(22, 16, 13, 0.72);
-}
-
-.audio-toggle__icon {
-  width: 1.25rem;
-  height: 1.25rem;
-}
-
-.app-shell {
-  min-height: 100vh;
-  min-height: 100dvh;
-  display: grid;
-  place-items: center;
-  padding: 2rem;
-  background:
-    radial-gradient(circle at top, rgba(176, 138, 62, 0.16), transparent 28%),
-    linear-gradient(180deg, #231712 0%, #120d0a 100%);
-}
-
-.app-placeholder {
-  width: min(100%, 42rem);
-  padding: clamp(1.5rem, 4vw, 3rem);
-  border: 1px solid rgba(243, 234, 223, 0.14);
-  border-radius: 1.5rem;
-  background: var(--warm-shadow);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.24);
-  color: var(--parchment);
-  text-align: center;
-}
-
-.app-placeholder__eyebrow {
-  margin: 0 0 1rem;
-  color: rgba(243, 234, 223, 0.7);
-  font-size: 0.88rem;
-  letter-spacing: 0.3em;
-  text-transform: uppercase;
-}
-
-.app-placeholder h1 {
-  margin: 0 0 1rem;
-  font-family: "Playfair Display", Georgia, serif;
-  font-size: clamp(2rem, 5vw, 3.2rem);
-  font-weight: 600;
-  line-height: 1.08;
-}
-
-.app-placeholder__copy {
-  margin: 0;
-  color: rgba(243, 234, 223, 0.82);
-  line-height: 1.7;
+  ::selection {
+    background: rgba(176, 138, 62, 0.32);
+    color: var(--color-guest-paper);
+  }
 }
 
 .sr-only {
@@ -235,19 +72,4 @@ button {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
-}
-
-@media (max-width: 640px) {
-  .start-screen__title-wrap {
-    margin-top: 4rem;
-  }
-
-  .start-screen__title {
-    max-width: 12ch;
-  }
-
-  .audio-toggle {
-    width: 2.75rem;
-    height: 2.75rem;
-  }
 }

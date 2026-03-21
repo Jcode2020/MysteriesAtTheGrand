@@ -29,6 +29,7 @@ def _debug_log(*, run_id: str, hypothesis_id: str, location: str, message: str, 
         "timestamp": int(time.time() * 1000),
     }
     serialized_payload = json.dumps(payload, separators=(",", ":"))
+    print(f"AGENT_DEBUG {serialized_payload}", flush=True)
     try:
         DEBUG_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
         with DEBUG_LOG_PATH.open("a", encoding="utf-8") as debug_file:

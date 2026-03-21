@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import json
 import logging
 import os
@@ -34,6 +35,7 @@ def _debug_log(*, run_id: str, hypothesis_id: str, location: str, message: str, 
         "timestamp": int(time.time() * 1000),
     }
     serialized_payload = json.dumps(payload, separators=(",", ":"))
+    print(f"AGENT_DEBUG {serialized_payload}", flush=True)
     try:
         DEBUG_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
         with DEBUG_LOG_PATH.open("a", encoding="utf-8") as debug_file:
@@ -136,6 +138,22 @@ class CrewRoomHandler:
             },
             current_room_name=action_plan["target_room_name"] or current_room_name,
         )
+
+        # region agent log
+        _debug_log(
+            run_id=run_id,
+            hypothesis_id="H6",
+            location="crew_room_handler.py:apply_action:created_state",
+            message="created room state after action",
+            data={
+                "created_state_id": created_room_state["id"],
+                "previous_state_id": created_room_state["previous_state_id"],
+                "room_name": created_room_state["room_name"],
+                "image_media_type": created_room_state["image_media_type"],
+                "room_image_base64_length": len(created_room_state["room_image_base64"]),
+            },
+        )
+        # endregion
 
         return {
             "status": "applied",
@@ -270,6 +288,7 @@ class CrewRoomHandler:
                         "image_model": image_model,
                         "existing_media_type": existing_media_type,
                         "source_image_bytes": len(existing_image_bytes),
+                        "source_image_sha256": hashlib.sha256(existing_image_bytes).hexdigest()[:16],
                         "prompt_length": len(edit_prompt),
                     },
                 )
@@ -300,12 +319,22 @@ class CrewRoomHandler:
         # region agent log
         _debug_log(
             run_id=run_id,
-            hypothesis_id="H1",
+            hypothesis_id="H5",
             location="crew_room_handler.py:_edit_room_image:after_openai",
             message="room image edit request completed",
             data={
                 "elapsed_ms": round((time.perf_counter() - edit_started_at) * 1000, 2),
                 "has_image_data": bool(image_response.data and image_response.data[0].b64_json),
+                "edited_image_bytes": len(base64.b64decode(image_response.data[0].b64_json))
+                if image_response.data and image_response.data[0].b64_json
+                else 0,
+                "edited_image_sha256": hashlib.sha256(base64.b64decode(image_response.data[0].b64_json)).hexdigest()[:16]
+                if image_response.data and image_response.data[0].b64_json
+                else None,
+                "image_changed": hashlib.sha256(existing_image_bytes).hexdigest()[:16]
+                != hashlib.sha256(base64.b64decode(image_response.data[0].b64_json)).hexdigest()[:16]
+                if image_response.data and image_response.data[0].b64_json
+                else None,
             },
         )
         # endregion

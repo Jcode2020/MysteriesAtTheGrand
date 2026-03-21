@@ -1,5 +1,13 @@
 import React from "react";
 
+import bookImage from "./assets/inventory/book.png";
+import cashImage from "./assets/inventory/cash.png";
+import contractImage from "./assets/inventory/contract.png";
+import penImage from "./assets/inventory/pen.png";
+import scarfImage from "./assets/inventory/scarf.png";
+import teddyImage from "./assets/inventory/teddy.png";
+import watchImage from "./assets/inventory/watch.png";
+
 type GameShellProps = {
   backgroundImageUrl: string | null;
   isLoadingImage: boolean;
@@ -17,18 +25,18 @@ type GameShellProps = {
 
 type MockInventoryItem = {
   detail: string;
-  mark: string;
+  imageSrc: string;
   name: string;
 };
 
 const INVENTORY_ITEMS: MockInventoryItem[] = [
-  { name: "Pen", mark: "P", detail: "Reception Desk" },
-  { name: "Book", mark: "B", detail: "Guest Library" },
-  { name: "Contract", mark: "C", detail: "Signed Copy" },
-  { name: "Cash", mark: "$", detail: "Tucked Away" },
-  { name: "Teddy", mark: "T", detail: "Nursery Find" },
-  { name: "Watch", mark: "W", detail: "Pocket Piece" },
-  { name: "Scarf", mark: "S", detail: "Velvet Clue" },
+  { name: "Pen", imageSrc: penImage, detail: "Reception Desk" },
+  { name: "Book", imageSrc: bookImage, detail: "Guest Library" },
+  { name: "Contract", imageSrc: contractImage, detail: "Signed Copy" },
+  { name: "Cash", imageSrc: cashImage, detail: "Tucked Away" },
+  { name: "Teddy", imageSrc: teddyImage, detail: "Nursery Find" },
+  { name: "Watch", imageSrc: watchImage, detail: "Pocket Piece" },
+  { name: "Scarf", imageSrc: scarfImage, detail: "Velvet Clue" },
 ];
 
 function SuitcaseIcon() {
@@ -118,6 +126,10 @@ function ResetIcon() {
   );
 }
 
+type InventoryIconProps = {
+  kind: MockInventoryItem["icon"];
+};
+
 function GameShell({
   backgroundImageUrl,
   isLoadingImage,
@@ -203,12 +215,23 @@ function GameShell({
             {INVENTORY_ITEMS.map((item) => (
               <article
                 key={item.name}
-                className="aspect-square rounded-[20px] border border-[rgba(45,29,22,0.12)] bg-[linear-gradient(180deg,rgba(243,234,223,0.98)_0%,rgba(233,216,192,0.92)_100%)] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]"
+                className="group relative aspect-square rounded-[20px] border border-[rgba(45,29,22,0.12)] bg-[linear-gradient(180deg,rgba(243,234,223,0.98)_0%,rgba(233,216,192,0.92)_100%)] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]"
               >
-                <div className="flex h-full flex-col justify-between rounded-[16px] border border-[rgba(45,29,22,0.08)] px-3 py-2">
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-[#8a5b24]">{item.detail}</p>
-                  <p className="font-display text-3xl leading-none text-[#6f2430]">{item.mark}</p>
-                  <p className="text-sm uppercase tracking-[0.18em] text-[#2d1d16]">{item.name}</p>
+                <div className="pointer-events-none absolute -top-4 left-1/2 z-20 w-[13rem] max-w-[13rem] -translate-x-1/2 -translate-y-full rounded-[22px] border border-[rgba(45,29,22,0.12)] bg-[linear-gradient(180deg,rgba(252,246,238,0.98)_0%,rgba(233,216,192,0.95)_100%)] p-3 opacity-0 shadow-[0_20px_40px_rgba(0,0,0,0.22)] transition duration-200 group-hover:opacity-100">
+                  <div className="overflow-hidden rounded-[16px] border border-[rgba(45,29,22,0.08)]">
+                    <img className="h-32 w-full object-cover object-center" src={item.imageSrc} alt="" aria-hidden="true" />
+                  </div>
+                  <div className="mt-3 text-center">
+                    <p className="text-[10px] uppercase tracking-[0.24em] text-[#8a5b24]">{item.detail}</p>
+                    <p className="mt-2 text-sm uppercase tracking-[0.18em] text-[#2d1d16]">{item.name}</p>
+                  </div>
+                </div>
+                <div className="relative h-full overflow-hidden rounded-[16px] border border-[rgba(45,29,22,0.08)] bg-[rgba(252,246,238,0.42)]">
+                  <img
+                    className="h-full w-full object-cover object-center transition duration-300 group-hover:scale-[1.03]"
+                    src={item.imageSrc}
+                    alt={item.name}
+                  />
                 </div>
               </article>
             ))}

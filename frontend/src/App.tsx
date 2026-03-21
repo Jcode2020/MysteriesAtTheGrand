@@ -40,7 +40,13 @@ function App() {
   });
   const [isAudioMuted, setIsAudioMuted] = useState(true);
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
-  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState<boolean>(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    return window.sessionStorage.getItem(HAS_STARTED_STORAGE_KEY) === "true";
+  });
   const [lobbyImageUrl, setLobbyImageUrl] = useState<string | null>(null);
   const [isLobbyImageLoading, setIsLobbyImageLoading] = useState(true);
   const backendBaseUrl = getBackendBaseUrl();
@@ -103,7 +109,10 @@ function App() {
         <StartScreen
           backgroundImageUrl={lobbyImageUrl}
           isLoadingImage={isLobbyImageLoading}
-          onStart={() => setHasStarted(true)}
+          onStart={() => {
+            setHasStarted(true);
+            setIsChatOpen(true);
+          }}
         />
       )}
     </>

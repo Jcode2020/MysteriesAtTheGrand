@@ -180,40 +180,20 @@ function GameShell({
         </aside>
       ) : null}
 
-      <section className="relative z-10 flex min-h-screen items-center justify-center px-8 py-12">
-        <div className="w-full max-w-5xl">
-          <div className="mb-5 text-center text-parchment">
-            <p className="text-[11px] uppercase tracking-[0.36em] text-white/60">Grand Pannonia Hotel</p>
-            <h1 className="mt-4 font-display text-5xl leading-none drop-shadow-[0_14px_30px_rgba(0,0,0,0.42)]">
-              The Lobby Awaits
-            </h1>
-            <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-white/78">
-              Enter the marble hush of the hotel lobby and begin the first exchange of your investigation.
+      <section className="relative z-10 min-h-screen px-8 py-8">
+        {backgroundImageUrl ? (
+          <img
+            className="h-[calc(100vh-4rem)] min-h-[36rem] w-full object-cover object-center"
+            src={backgroundImageUrl}
+            alt="Grand hotel lobby with warm chandelier light, marble floors, and a sweeping staircase."
+          />
+        ) : (
+          <div className="flex h-[calc(100vh-4rem)] min-h-[36rem] w-full items-center justify-center bg-[radial-gradient(circle_at_top,rgba(176,138,62,0.18),transparent_32%),linear-gradient(180deg,#281b15_0%,#120d0a_100%)]">
+            <p className="text-sm uppercase tracking-[0.28em] text-white/60">
+              {isLoadingImage ? "Preparing the lobby..." : "Lobby image unavailable"}
             </p>
           </div>
-
-          <div className="rounded-[34px] border border-white/12 bg-[rgba(22,16,13,0.36)] p-4 shadow-[0_30px_90px_rgba(0,0,0,0.42)] backdrop-blur-sm">
-            <div className="rounded-[28px] border border-[#b08a3e]/28 bg-[rgba(12,8,6,0.36)] p-4">
-              <div className="relative overflow-hidden rounded-[24px] border border-white/8 bg-[rgba(18,13,10,0.9)]">
-                {backgroundImageUrl ? (
-                  <img
-                    className="h-[68vh] min-h-[32rem] w-full object-cover object-center"
-                    src={backgroundImageUrl}
-                    alt="Grand hotel lobby with warm chandelier light, marble floors, and a sweeping staircase."
-                  />
-                ) : (
-                  <div className="flex h-[68vh] min-h-[32rem] w-full items-center justify-center bg-[radial-gradient(circle_at_top,rgba(176,138,62,0.18),transparent_32%),linear-gradient(180deg,#281b15_0%,#120d0a_100%)]">
-                    <p className="text-sm uppercase tracking-[0.28em] text-white/60">
-                      {isLoadingImage ? "Preparing the lobby..." : "Lobby image unavailable"}
-                    </p>
-                  </div>
-                )}
-
-                <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(18,13,10,0.04)_0%,rgba(18,13,10,0.06)_58%,rgba(18,13,10,0.42)_100%)]" />
-              </div>
-            </div>
-          </div>
-        </div>
+        )}
       </section>
 
       <button

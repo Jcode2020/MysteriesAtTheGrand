@@ -1,0 +1,11 @@
+{
+  "persistent_rooms": [
+    {
+      "room_name": "lobby",
+      "image_path": "images/lobby.png",
+      "image_media_type": "image/png",
+      "room_modifications": null,
+      "state_timestamp": "1900-01-01T00:00:00+00:00"
+    }
+  ]
+}

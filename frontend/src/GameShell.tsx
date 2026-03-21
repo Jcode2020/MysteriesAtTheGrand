@@ -5,8 +5,14 @@ type GameShellProps = {
   isLoadingImage: boolean;
   isInventoryOpen: boolean;
   isChatOpen: boolean;
+  isResetModalOpen: boolean;
+  isResetting: boolean;
+  resetError: string | null;
   onToggleInventory: () => void;
   onToggleChat: () => void;
+  onOpenResetModal: () => void;
+  onCloseResetModal: () => void;
+  onConfirmReset: () => void;
 };
 
 type MockInventoryItem = {
@@ -89,13 +95,42 @@ function ChatIcon() {
   );
 }
 
+function ResetIcon() {
+  return (
+    <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24">
+      <path
+        d="M6.75 8.75H3.75V5.75"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.5"
+      />
+      <path
+        d="M4 8.25C5.49 6.04 8.02 4.75 10.75 4.75C15.03 4.75 18.5 8.22 18.5 12.5C18.5 16.78 15.03 20.25 10.75 20.25C7.48 20.25 4.68 18.22 3.56 15.34"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.5"
+      />
+    </svg>
+  );
+}
+
 function GameShell({
   backgroundImageUrl,
   isLoadingImage,
   isInventoryOpen,
   isChatOpen,
+  isResetModalOpen,
+  isResetting,
+  resetError,
   onToggleInventory,
   onToggleChat,
+  onOpenResetModal,
+  onCloseResetModal,
+  onConfirmReset,
 }: GameShellProps) {
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#120d0a] text-parchment">
@@ -110,6 +145,42 @@ function GameShell({
 
       <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(20,14,11,0.24)_0%,rgba(20,14,11,0.5)_45%,rgba(20,14,11,0.8)_100%)]" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(20,14,11,0.14)_40%,rgba(20,14,11,0.5)_100%)]" />
+
+      {isResetModalOpen ? (
+        <div className="absolute inset-0 z-[60] flex items-center justify-center bg-[rgba(18,13,10,0.68)] px-6 backdrop-blur-sm">
+          <section className="w-full max-w-xl rounded-[28px] border border-[#b08a3e]/28 bg-[linear-gradient(180deg,rgba(252,246,238,0.97)_0%,rgba(233,216,192,0.96)_100%)] p-7 text-walnut-ink shadow-[0_30px_90px_rgba(0,0,0,0.42)]">
+            <p className="text-[11px] uppercase tracking-[0.34em] text-[#8a5b24]">Private Notice</p>
+            <h2 className="mt-4 font-display text-[2rem] leading-none text-[#2d1d16]">Reset your stay?</h2>
+            <p className="mt-4 text-sm leading-7 text-[#4a352c]">
+              This will delete the current session&apos;s progress, close the active overlays, and return you to
+              the start screen.
+            </p>
+            {resetError ? (
+              <p className="mt-4 rounded-[18px] border border-[#6f2430]/18 bg-[rgba(111,36,48,0.08)] px-4 py-3 text-sm leading-6 text-[#6f2430]">
+                {resetError}
+              </p>
+            ) : null}
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                className="rounded-full border border-[rgba(45,29,22,0.14)] bg-transparent px-5 py-3 text-[12px] uppercase tracking-[0.24em] text-[#6f584b] transition hover:border-[#2d1d16]/20 hover:text-[#2d1d16] disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={onCloseResetModal}
+                disabled={isResetting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="rounded-full border border-[#6f2430]/18 bg-[linear-gradient(180deg,rgba(111,36,48,0.96)_0%,rgba(79,23,34,0.98)_100%)] px-5 py-3 text-[12px] uppercase tracking-[0.24em] text-[#fcf6ee] shadow-[0_18px_40px_rgba(0,0,0,0.22)] transition hover:-translate-y-px hover:shadow-[0_22px_42px_rgba(0,0,0,0.26)] disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={onConfirmReset}
+                disabled={isResetting}
+              >
+                {isResetting ? "Resetting..." : "Reset Progress"}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
 
       {isInventoryOpen ? (
         <aside className="absolute bottom-8 left-8 top-24 z-30 flex w-[22rem] flex-col rounded-[28px] border border-[#b08a3e]/35 bg-[rgba(252,246,238,0.92)] p-6 text-walnut-ink shadow-[0_24px_80px_rgba(0,0,0,0.35)] backdrop-blur-md">
@@ -195,6 +266,15 @@ function GameShell({
           </div>
         )}
       </section>
+
+      <button
+        type="button"
+        className="absolute left-8 top-8 z-40 inline-flex items-center gap-3 rounded-full border border-[#b08a3e]/35 bg-[rgba(243,234,223,0.9)] px-5 py-4 text-walnut-ink shadow-[0_18px_42px_rgba(0,0,0,0.32)] backdrop-blur-md transition duration-200 hover:-translate-y-px hover:bg-[rgba(252,246,238,0.95)]"
+        onClick={onOpenResetModal}
+      >
+        <ResetIcon />
+        <span className="text-[12px] uppercase tracking-[0.28em]">Reset</span>
+      </button>
 
       <button
         type="button"

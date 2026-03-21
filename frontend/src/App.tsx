@@ -47,10 +47,48 @@ function App() {
 
     return window.sessionStorage.getItem(HAS_STARTED_STORAGE_KEY) === "true";
   });
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
   const [lobbyImageUrl, setLobbyImageUrl] = useState<string | null>(null);
   const [isLobbyImageLoading, setIsLobbyImageLoading] = useState(true);
   const backendBaseUrl = getBackendBaseUrl();
   const openingThemeUrl = `${backendBaseUrl}/audio/opening-theme`;
+
+  async function handleResetExperience(): Promise<void> {
+    setIsResetting(true);
+    setResetError(null);
+
+    try {
+      const response = await fetch(`${backendBaseUrl}/session/reset`, {
+        method: "POST",
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        let errorMessage = `Failed to reset progress: ${response.status}`;
+        try {
+          const payload = (await response.json()) as { error?: string };
+          if (typeof payload.error === "string" && payload.error) {
+            errorMessage = payload.error;
+          }
+        } catch {
+          // Keep the status-based fallback when the error body is unavailable.
+        }
+        throw new Error(errorMessage);
+      }
+
+      setHasStarted(false);
+      setIsInventoryOpen(false);
+      setIsChatOpen(false);
+      setIsResetModalOpen(false);
+    } catch (error) {
+      console.error("Could not reset the current session.", error);
+      setResetError(error instanceof Error ? error.message : "Could not reset the current session.");
+    } finally {
+      setIsResetting(false);
+    }
+  }
 
   useEffect(() => {
     window.sessionStorage.setItem(HAS_STARTED_STORAGE_KEY, String(hasStarted));
@@ -102,8 +140,25 @@ function App() {
           isLoadingImage={isLobbyImageLoading}
           isInventoryOpen={isInventoryOpen}
           isChatOpen={isChatOpen}
+          isResetModalOpen={isResetModalOpen}
+          isResetting={isResetting}
+          resetError={resetError}
           onToggleInventory={() => setIsInventoryOpen((currentValue) => !currentValue)}
           onToggleChat={() => setIsChatOpen((currentValue) => !currentValue)}
+          onOpenResetModal={() => {
+            setResetError(null);
+            setIsResetModalOpen(true);
+          }}
+          onCloseResetModal={() => {
+            if (isResetting) {
+              return;
+            }
+            setResetError(null);
+            setIsResetModalOpen(false);
+          }}
+          onConfirmReset={() => {
+            void handleResetExperience();
+          }}
         />
       ) : (
         <StartScreen

@@ -52,9 +52,11 @@
 - To delete all runtime rows while keeping the schema, run `python db/clear_hotel_db.py --yes`.
 - If you want to target a different SQLite file, use `python db/clear_hotel_db.py --database /path/to/file.sqlite3 --yes`.
 - After clearing the database, restart the backend if you want the persistent room seed data to be created again.
+- The in-app reset flow uses the backend session reset endpoint instead of wiping the full database, so it clears only the current anonymous playthrough and returns that visitor to the persistent base state.
 
 ## Backend Room State API
 - `POST /rooms/states` creates a room snapshot inside the caller's current anonymous session. Send JSON with `room_name`, `room_image_base64`, optional `room_modifications`, optional `state_timestamp`, optional `previous_state_id`, and optional `image_media_type`.
 - `GET /rooms/<room_name>/states` returns the full timeline for a room inside the caller's current anonymous session, including that room's shared persistent base state first when one exists. Add `?include_images=true` to include base64 image data in the response.
 - `GET /rooms/<room_name>/latest` returns the latest snapshot for a room in the caller's current anonymous session, including the image. If the session has not changed the room yet, it falls back to that room's persistent base state when one exists.
+- `POST /session/reset` deletes the caller's current anonymous room-state history, rotates the session cookie, and returns the experience to the persistent base state without clearing other visitors' runtime rows.
 - Browser `POST /rooms/states` requests must come from the configured `FRONTEND_ORIGIN`; cross-origin writes are rejected.

@@ -414,15 +414,29 @@ def _ensure_session_id() -> str:
 def _attach_session_cookie(response: Response, session_id: str, app: Flask) -> Response:
     """Persist the anonymous session cookie for future room-state requests."""
     if getattr(g, "should_set_session_cookie", False):
-        response.set_cookie(
-            SESSION_COOKIE_NAME,
-            session_id,
-            httponly=True,
-            samesite=app.config["SESSION_COOKIE_SAMESITE"],
-            secure=app.config["SESSION_COOKIE_SECURE"],
-            max_age=60 * 60 * 24 * 30,
-        )
+        _set_session_cookie(response, session_id, app)
     return response
+
+
+def _set_session_cookie(response: Response, session_id: str, app: Flask) -> Response:
+    """Write the active anonymous session cookie to the response."""
+    response.set_cookie(
+        SESSION_COOKIE_NAME,
+        session_id,
+        httponly=True,
+        samesite=app.config["SESSION_COOKIE_SAMESITE"],
+        secure=app.config["SESSION_COOKIE_SECURE"],
+        max_age=60 * 60 * 24 * 30,
+    )
+    return response
+
+
+def _replace_session_cookie(response: Response, app: Flask) -> Response:
+    """Rotate the anonymous session cookie after a destructive session action."""
+    new_session_id = _generate_session_id()
+    g.session_id = new_session_id
+    g.should_set_session_cookie = False
+    return _set_session_cookie(response, new_session_id, app)
 
 
 def _previous_state_belongs_to_session(
@@ -517,13 +531,14 @@ def create_app(
         if request.headers.get("X-Forwarded-Proto", request.scheme) == "https":
             response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 
-        if request.path.startswith("/rooms/"):
+        if request.path.startswith("/rooms/") or request.path == "/session/reset":
             response.headers.setdefault("Cache-Control", "no-store")
         return response
 
     @app.route("/rooms/<string:room_name>/latest", methods=["OPTIONS"])
     @app.route("/rooms/<string:room_name>/states", methods=["OPTIONS"])
     @app.route("/rooms/states", methods=["OPTIONS"])
+    @app.route("/session/reset", methods=["OPTIONS"])
     def options_handler(room_name: str | None = None) -> tuple[str, int]:
         return "", 204
 
@@ -619,6 +634,27 @@ def create_app(
         )
         response = jsonify(_serialize_room_state(created_row, include_image=True))
         return _attach_session_cookie(response, session_id, app), 201
+
+    @app.post("/session/reset")
+    def reset_session_progress() -> tuple[object, int]:
+        """Delete this visitor's room history and issue a fresh anonymous session."""
+        session_id = _ensure_session_id()
+        if not _request_origin_is_allowed(app.config["FRONTEND_ORIGIN"]):
+            logger.warning("Rejected session reset from unexpected origin: %s", request.headers.get("Origin"))
+            response = jsonify({"error": "Request origin is not allowed."})
+            return _attach_session_cookie(response, session_id, app), 403
+
+        delete_sql = """
+            DELETE FROM room_table
+            WHERE session_id = ? AND session_id != ?
+        """
+        with _get_db_connection(app.config["DATABASE_PATH"]) as connection:
+            delete_cursor = connection.execute(delete_sql, (session_id, PERSISTENT_SESSION_ID))
+            deleted_room_states = delete_cursor.rowcount if delete_cursor.rowcount >= 0 else 0
+
+        logger.info("Reset session %s and deleted %s room states", session_id, deleted_room_states)
+        response = jsonify({"status": "reset", "deleted_room_states": deleted_room_states})
+        return _replace_session_cookie(response, app), 200
 
     @app.get("/rooms/<string:room_name>/states")
     def list_room_states(room_name: str) -> tuple[object, int]:

@@ -350,6 +350,83 @@ class RoomStateApiTests(unittest.TestCase):
         self.assertEqual(second_response.status_code, 400)
         self.assertIn("this session", second_response.get_json()["error"])
 
+    def test_reset_session_progress_clears_only_current_session_history(self) -> None:
+        first_client = self.app.test_client()
+        second_client = self.app.test_client()
+
+        first_client.get("/rooms/lobby/latest")
+        second_client.get("/rooms/lobby/latest")
+
+        first_response = first_client.post(
+            "/rooms/states",
+            json={
+                "room_name": "suite",
+                "room_image_base64": ONE_PIXEL_PNG_BASE64,
+                "room_modifications": "curtains are drawn",
+                "state_timestamp": "2026-03-21T12:00:00+00:00",
+            },
+        )
+        second_response = second_client.post(
+            "/rooms/states",
+            json={
+                "room_name": "suite",
+                "room_image_base64": ONE_PIXEL_PNG_BASE64,
+                "room_modifications": "window is open",
+                "state_timestamp": "2026-03-21T12:01:00+00:00",
+            },
+        )
+        self.assertEqual(first_response.status_code, 201)
+        self.assertEqual(second_response.status_code, 201)
+
+        first_state = first_response.get_json()
+        second_state = second_response.get_json()
+
+        reset_response = first_client.post("/session/reset")
+        self.assertEqual(reset_response.status_code, 200)
+        self.assertEqual(reset_response.get_json()["status"], "reset")
+        self.assertEqual(reset_response.get_json()["deleted_room_states"], 1)
+
+        first_timeline_after_reset = first_client.get("/rooms/suite/states")
+        second_timeline_after_reset = second_client.get("/rooms/suite/states")
+        self.assertEqual(first_timeline_after_reset.status_code, 200)
+        self.assertEqual(second_timeline_after_reset.status_code, 200)
+        self.assertEqual(first_timeline_after_reset.get_json(), [])
+        self.assertEqual(len(second_timeline_after_reset.get_json()), 1)
+
+        recreated_response = first_client.post(
+            "/rooms/states",
+            json={
+                "room_name": "suite",
+                "room_image_base64": ONE_PIXEL_PNG_BASE64,
+                "room_modifications": "desk lamp is lit",
+                "state_timestamp": "2026-03-21T12:02:00+00:00",
+            },
+        )
+        self.assertEqual(recreated_response.status_code, 201)
+        recreated_state = recreated_response.get_json()
+        self.assertNotEqual(recreated_state["session_id"], first_state["session_id"])
+        self.assertEqual(second_state["session_id"], second_timeline_after_reset.get_json()[0]["session_id"])
+
+    def test_reset_keeps_persistent_lobby_base_available(self) -> None:
+        self.client.get("/rooms/lobby/latest")
+        create_response = self.client.post(
+            "/rooms/states",
+            json={
+                "room_name": "lobby",
+                "room_image_base64": ONE_PIXEL_PNG_BASE64,
+                "room_modifications": "porter moves a trunk",
+                "state_timestamp": "2026-03-21T12:05:00+00:00",
+            },
+        )
+        self.assertEqual(create_response.status_code, 201)
+
+        reset_response = self.client.post("/session/reset")
+        self.assertEqual(reset_response.status_code, 200)
+
+        latest_lobby_response = self.client.get("/rooms/lobby/latest")
+        self.assertEqual(latest_lobby_response.status_code, 200)
+        self.assertEqual(latest_lobby_response.get_json()["session_id"], "persistent")
+
 
 if __name__ == "__main__":
     unittest.main()

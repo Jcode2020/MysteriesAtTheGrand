@@ -39,6 +39,7 @@
 ## Production Notes
 - Railway can provide the backend port via `PORT`; the backend also still accepts `BACKEND_PORT` for local development.
 - When deploying the backend service from `backend/` as the Railway root directory, use Gunicorn in production instead of the Flask development server. Example: `gunicorn --bind 0.0.0.0:$PORT backend:app`
+- `backend/gunicorn.conf.py` raises the default request timeout for production chat/image-edit turns. If your Railway start command overrides Gunicorn config loading, pass it explicitly with `-c gunicorn.conf.py`.
 - When serving the frontend with `vite preview`, host allowlisting is now open in preview mode so generated Railway domains do not need to be hard-coded.
 - The chat endpoint streams `text/event-stream` responses. If you tune Gunicorn later, make sure long-lived streamed requests remain supported.
 

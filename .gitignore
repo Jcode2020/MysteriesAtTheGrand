@@ -15,6 +15,7 @@ frontend/dist/
 .DS_Store
 .vscode/
 .idea/
+.cursor/
 AGENTS.md
 CLAUDE.md
 agents/

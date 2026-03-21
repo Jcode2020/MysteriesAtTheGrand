@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 from typing import Any, Iterator, Type
 
@@ -19,41 +20,24 @@ class CrewCoordinator:
     def stream_turn(self, session_id: str, user_message: str) -> Iterator[dict[str, Any]]:
         """Stream one chat turn as SSE-friendly events."""
         conversation_state = get_crew_conversation(self.database_path, session_id) or {}
-        conversation_id = conversation_state.get("openai_conversation_id") or self._create_conversation_id()
         previous_response_id = conversation_state.get("latest_response_id")
+        conversation_id = None
 
-        coordinator_agent, coordinator_task, crew = self._build_crew(
-            session_id=session_id,
-            user_message=user_message,
-            conversation_id=conversation_id,
-            previous_response_id=previous_response_id,
-        )
+        try:
+            action_result = self._handle_player_action_if_needed(session_id=session_id, user_message=user_message)
+            if action_result is not None:
+                final_text = str(action_result.get("user_message") or "").strip()
+            else:
+                final_text = self._run_concierge_reply(user_message=user_message)
+            latest_response_id = None
+            streamed_text_parts: list[str] = []
 
-        streaming = crew.kickoff()
-        streamed_text_parts: list[str] = []
-        latest_response_id = previous_response_id
+        except Exception as error:
+            raise
 
-        for chunk in streaming:
-            chunk_content = getattr(chunk, "content", "")
-            if isinstance(chunk_content, str) and chunk_content:
-                streamed_text_parts.append(chunk_content)
-                yield {"type": "delta", "content": chunk_content}
-
-            chunk_response_id = getattr(chunk, "response_id", None)
-            if isinstance(chunk_response_id, str) and chunk_response_id:
-                latest_response_id = chunk_response_id
-
-        result = getattr(streaming, "result", None)
-        final_text = ""
-        if result is not None:
-            final_text = getattr(result, "raw", "") or str(result)
-        if not final_text.strip():
-            final_text = "".join(streamed_text_parts).strip()
-
-        # If CrewAI did not expose chunked text, still stream the final answer to the frontend.
-        if final_text and not streamed_text_parts:
-            for token in self._chunk_text_for_stream(final_text):
-                yield {"type": "delta", "content": token}
+        for token in self._chunk_text_for_stream(final_text):
+            streamed_text_parts.append(token)
+            yield {"type": "delta", "content": token}
 
         upsert_crew_conversation(
             database_path=self.database_path,
@@ -69,12 +53,61 @@ class CrewCoordinator:
             "latest_response_id": latest_response_id,
         }
 
+    def _handle_player_action_if_needed(self, *, session_id: str, user_message: str) -> dict[str, Any] | None:
+        """Use the proven inventory and room handlers directly for action-oriented turns."""
+        resolved_item = self.inventory_handler.resolve_item(session_id, user_message)
+        if resolved_item is None and not self._looks_like_room_action(user_message):
+            return None
+        return self.room_handler.apply_action(session_id=session_id, user_message=user_message, inventory_item=resolved_item)
+
+    def _run_concierge_reply(self, *, user_message: str) -> str:
+        """Run a plain stateless concierge reply without native CrewAI tools."""
+        try:
+            from crewai import Agent, LLM
+        except ImportError as error:
+            raise RuntimeError("CrewAI must be installed before the coordinator can run.") from error
+
+        concierge_agent = Agent(
+            role="Crew Coordinator",
+            goal="Reply to the player concisely and stay in world.",
+            backstory=(
+                "You are the private concierge wire for the Grand Pannonia Hotel. "
+                "You keep the conversation short, natural, and useful."
+            ),
+            llm=LLM(**build_crewai_llm_kwargs(stream=False)),
+            verbose=False,
+            cache=False,
+        )
+        result = concierge_agent.kickoff(
+            (
+                "Respond to the current player turn. Keep the answer short and text-message-like.\n"
+                f"Current player message: {user_message}\n"
+                "Rules:\n"
+                "- Most replies should be 1 to 4 short sentences.\n"
+                "- Stay inside the world of the historic hotel mystery.\n"
+                "- Do not describe using tools.\n"
+                "- Do not write essays.\n"
+            )
+        )
+        final_text = getattr(result, "raw", "") or str(result)
+        if not final_text.strip():
+            raise ValueError("The concierge reply was empty.")
+        return final_text
+
+    def _looks_like_room_action(self, user_message: str) -> bool:
+        """Detect action-oriented commands that should go through the room handler."""
+        normalized_message = user_message.lower()
+        action_pattern = re.compile(
+            r"\b(put|place|set|leave|drop|use|move|push|pull|open|close|inspect|look|search|check|take|pick|go|enter|walk|return|hide|unlock)\b"
+        )
+        return action_pattern.search(normalized_message) is not None
+
     def _build_crew(
         self,
         *,
         session_id: str,
         user_message: str,
-        conversation_id: str,
+        conversation_id: str | None,
         previous_response_id: str | None,
     ) -> tuple[Any, Any, Any]:
         """Build the one-turn coordinator crew with custom tools."""

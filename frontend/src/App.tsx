@@ -405,8 +405,10 @@ function App() {
           }
         }
 
-        await loadSessionState();
+        const nextRoomName = await loadSessionState();
         await loadInventory();
+        const refreshController = new AbortController();
+        await loadCurrentRoomImage(nextRoomName, refreshController.signal);
       } catch (error) {
         console.error("Could not complete the chat request.", error);
         const fallbackMessage =
@@ -426,7 +428,7 @@ function App() {
         }
       }
     },
-    [backendBaseUrl, isStreamingChat, loadInventory, loadSessionState],
+    [backendBaseUrl, isStreamingChat, loadCurrentRoomImage, loadInventory, loadSessionState],
   );
 
   return (

@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 
 type StartScreenProps = {
+  audioUrl: string;
   backgroundImageUrl: string | null;
   isAudioMuted: boolean;
   isLoadingImage: boolean;
@@ -71,14 +72,72 @@ function AudioOffIcon() {
 }
 
 function StartScreen({
+  audioUrl,
   backgroundImageUrl,
   isAudioMuted,
   isLoadingImage,
   onStart,
   onToggleAudio,
 }: StartScreenProps) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const shouldKeepTryingToPlayRef = useRef(!isAudioMuted);
+
+  const attemptPlayback = useCallback(() => {
+    const audioElement = audioRef.current;
+    if (audioElement === null || shouldKeepTryingToPlayRef.current === false) {
+      return;
+    }
+
+    void audioElement.play().catch((error: unknown) => {
+      console.warn("Opening theme autoplay was blocked by the browser.", error);
+    });
+  }, []);
+
+  useEffect(() => {
+    const audioElement = audioRef.current;
+    if (audioElement === null) {
+      return;
+    }
+
+    if (isAudioMuted) {
+      shouldKeepTryingToPlayRef.current = false;
+      audioElement.muted = true;
+      audioElement.pause();
+      return;
+    }
+
+    shouldKeepTryingToPlayRef.current = true;
+    audioElement.muted = false;
+    attemptPlayback();
+  }, [attemptPlayback, audioUrl, isAudioMuted]);
+
+  useEffect(() => {
+    function resumeAudioFromFirstInteraction() {
+      attemptPlayback();
+    }
+
+    window.addEventListener("pointerdown", resumeAudioFromFirstInteraction);
+    window.addEventListener("keydown", resumeAudioFromFirstInteraction);
+
+    return () => {
+      window.removeEventListener("pointerdown", resumeAudioFromFirstInteraction);
+      window.removeEventListener("keydown", resumeAudioFromFirstInteraction);
+    };
+  }, [attemptPlayback]);
+
   return (
     <main className="start-screen">
+      <audio
+        ref={audioRef}
+        src={audioUrl}
+        loop
+        preload="auto"
+        autoPlay
+        playsInline
+        onCanPlayThrough={attemptPlayback}
+        aria-hidden="true"
+      />
+
       {backgroundImageUrl ? (
         <img
           className="start-screen__background"

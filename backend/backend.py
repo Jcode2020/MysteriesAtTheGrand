@@ -10,12 +10,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from flask import Flask, Response, g, jsonify, request
+from flask import Flask, Response, g, jsonify, request, send_file
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_DATABASE_PATH = BASE_DIR / "db" / "hotel_db.sqlite3"
 SCHEMA_PATH = BASE_DIR / "db" / "schema.sql"
 DEFAULT_PERSISTENT_ROOM_SEED_MANIFEST_PATH = BASE_DIR / "db" / "seed" / "persistent" / "manifest.json"
+DEFAULT_OPENING_AUDIO_PATH = (
+    BASE_DIR / "backend" / "static" / "audio" / "Secrets_of_the_Grand_Pannonia_2026-03-21T133239.mp3"
+)
 SESSION_COOKIE_NAME = "grand_pannonia_session_id"
 LEGACY_SESSION_ID = "legacy-default-session"
 PERSISTENT_SESSION_ID = "persistent"
@@ -64,6 +67,18 @@ def _resolve_seed_manifest_path(seed_manifest_path: str | Path | None = None) ->
         return Path(configured_manifest_path).expanduser().resolve()
 
     return DEFAULT_PERSISTENT_ROOM_SEED_MANIFEST_PATH
+
+
+def _resolve_opening_audio_path(opening_audio_path: str | Path | None = None) -> Path:
+    """Resolve the opening-theme audio path from the argument or environment."""
+    if opening_audio_path is not None:
+        return Path(opening_audio_path).expanduser().resolve()
+
+    configured_audio_path = os.getenv("OPENING_AUDIO_PATH")
+    if configured_audio_path:
+        return Path(configured_audio_path).expanduser().resolve()
+
+    return DEFAULT_OPENING_AUDIO_PATH
 
 
 def _initialize_database(database_path: Path) -> None:
@@ -431,6 +446,7 @@ def _room_query(room_name: str, latest_only: bool) -> tuple[str, tuple[Any, ...]
 def create_app(
     database_path: str | Path | None = None,
     seed_manifest_path: str | Path | None = None,
+    opening_audio_path: str | Path | None = None,
 ) -> Flask:
     """Create the Flask app and wire it to the SQLite room-state database."""
     _configure_logging()
@@ -438,9 +454,11 @@ def create_app(
     app = Flask(__name__)
     resolved_database_path = _resolve_database_path(database_path)
     resolved_seed_manifest_path = _resolve_seed_manifest_path(seed_manifest_path)
+    resolved_opening_audio_path = _resolve_opening_audio_path(opening_audio_path)
     seed_entries = _load_persistent_room_seed_entries(resolved_seed_manifest_path)
     app.config["DATABASE_PATH"] = resolved_database_path
     app.config["FRONTEND_ORIGIN"] = _resolve_frontend_origin()
+    app.config["OPENING_AUDIO_PATH"] = resolved_opening_audio_path
     app.config["SESSION_COOKIE_SECURE"] = _resolve_session_cookie_secure()
     app.config["PERSISTENT_ROOM_SEED_MANIFEST_PATH"] = resolved_seed_manifest_path
 
@@ -465,6 +483,21 @@ def create_app(
     @app.get("/health")
     def health() -> tuple[object, int]:
         return jsonify({"status": "ok"}), 200
+
+    @app.get("/audio/opening-theme")
+    def get_opening_theme() -> Response | tuple[object, int]:
+        """Stream the committed opening theme used on the first screen."""
+        audio_path = Path(app.config["OPENING_AUDIO_PATH"])
+        if not audio_path.exists():
+            logger.error("Opening audio file not found: %s", audio_path)
+            return jsonify({"error": "Opening audio file is not available."}), 404
+
+        return send_file(
+            audio_path,
+            mimetype="audio/mpeg",
+            conditional=True,
+            download_name=audio_path.name,
+        )
 
     @app.post("/rooms/states")
     def create_room_state() -> tuple[object, int]:

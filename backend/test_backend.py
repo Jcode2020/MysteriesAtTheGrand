@@ -11,6 +11,7 @@ ONE_PIXEL_PNG_BASE64 = (
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8"
     "/w8AAusB9Y9nX4QAAAAASUVORK5CYII="
 )
+OPENING_AUDIO_BYTES = b"ID3test-opening-theme"
 
 
 class RoomStateApiTests(unittest.TestCase):
@@ -19,6 +20,8 @@ class RoomStateApiTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory()
         self.database_path = Path(self.temp_dir.name) / "test_hotel_db.sqlite3"
+        self.opening_audio_path = Path(self.temp_dir.name) / "opening-theme.mp3"
+        self.opening_audio_path.write_bytes(OPENING_AUDIO_BYTES)
         self.seed_manifest_path = self._write_seed_manifest(
             [
                 {
@@ -33,6 +36,7 @@ class RoomStateApiTests(unittest.TestCase):
         self.app = create_app(
             database_path=self.database_path,
             seed_manifest_path=self.seed_manifest_path,
+            opening_audio_path=self.opening_audio_path,
         )
         self.client = self.app.test_client()
 
@@ -75,6 +79,13 @@ class RoomStateApiTests(unittest.TestCase):
         self.assertEqual(first_state["room_name"], "lobby")
         self.assertEqual(second_state["room_name"], "lobby")
         self.assertEqual(first_state["room_image_base64"], second_state["room_image_base64"])
+
+    def test_opening_theme_streams_the_committed_audio_file(self) -> None:
+        response = self.client.get("/audio/opening-theme")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.mimetype, "audio/mpeg")
+        self.assertEqual(response.data, OPENING_AUDIO_BYTES)
 
     def test_other_rooms_can_also_use_persistent_base_states(self) -> None:
         bootstrap_database_path = Path(self.temp_dir.name) / "bootstrap_hotel_db.sqlite3"

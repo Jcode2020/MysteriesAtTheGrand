@@ -30,10 +30,11 @@ function App() {
   const [isAudioMuted, setIsAudioMuted] = useState(true);
   const [lobbyImageUrl, setLobbyImageUrl] = useState<string | null>(null);
   const [isLobbyImageLoading, setIsLobbyImageLoading] = useState(true);
+  const backendBaseUrl = getBackendBaseUrl();
+  const openingThemeUrl = `${backendBaseUrl}/audio/opening-theme`;
 
   useEffect(() => {
     const controller = new AbortController();
-    const backendBaseUrl = getBackendBaseUrl();
 
     async function loadLobbyImage(): Promise<void> {
       try {
@@ -65,11 +66,12 @@ function App() {
     return () => {
       controller.abort();
     };
-  }, []);
+  }, [backendBaseUrl]);
 
   if (!hasStarted) {
     return (
       <StartScreen
+        audioUrl={openingThemeUrl}
         backgroundImageUrl={lobbyImageUrl}
         isAudioMuted={isAudioMuted}
         isLoadingImage={isLobbyImageLoading}

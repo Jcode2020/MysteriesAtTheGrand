@@ -1,4 +1,6 @@
 import json
+import logging
+import os
 import re
 import time
 from pathlib import Path
@@ -9,7 +11,10 @@ from crew_inventory_handler import CrewInventoryHandler
 from crew_room_handler import CrewRoomHandler
 from db_handlers import get_crew_conversation, get_inventory_item, upsert_crew_conversation
 
-DEBUG_LOG_PATH = Path("/Users/johannesantoni/VS Code/MysteriesAtTheGrand/.cursor/debug-9b5e82.log")
+logger = logging.getLogger(__name__)
+DEBUG_LOG_PATH = Path(
+    os.getenv("AGENT_DEBUG_LOG_PATH", "/Users/johannesantoni/VS Code/MysteriesAtTheGrand/.cursor/debug-9b5e82.log")
+)
 DEBUG_SESSION_ID = "9b5e82"
 
 
@@ -23,8 +28,24 @@ def _debug_log(*, run_id: str, hypothesis_id: str, location: str, message: str, 
         "data": data,
         "timestamp": int(time.time() * 1000),
     }
-    with DEBUG_LOG_PATH.open("a", encoding="utf-8") as debug_file:
-        debug_file.write(json.dumps(payload, separators=(",", ":")) + "\n")
+    serialized_payload = json.dumps(payload, separators=(",", ":"))
+    try:
+        DEBUG_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with DEBUG_LOG_PATH.open("a", encoding="utf-8") as debug_file:
+            debug_file.write(serialized_payload + "\n")
+    except OSError as error:
+        logger.info(
+            "DEBUG_NDJSON_FALLBACK %s",
+            json.dumps(
+                {
+                    **payload,
+                    "fallbackErrorType": type(error).__name__,
+                    "fallbackErrorMessage": str(error),
+                    "fallbackPath": str(DEBUG_LOG_PATH),
+                },
+                separators=(",", ":"),
+            ),
+        )
 
 
 class CrewCoordinator:

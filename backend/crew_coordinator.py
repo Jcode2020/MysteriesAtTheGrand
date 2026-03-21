@@ -1,5 +1,6 @@
 import json
 import re
+import time
 from pathlib import Path
 from typing import Any, Iterator, Type
 
@@ -7,6 +8,23 @@ from ai_runtime import build_crewai_llm_kwargs, create_openai_client
 from crew_inventory_handler import CrewInventoryHandler
 from crew_room_handler import CrewRoomHandler
 from db_handlers import get_crew_conversation, get_inventory_item, upsert_crew_conversation
+
+DEBUG_LOG_PATH = Path("/Users/johannesantoni/VS Code/MysteriesAtTheGrand/.cursor/debug-9b5e82.log")
+DEBUG_SESSION_ID = "9b5e82"
+
+
+def _debug_log(*, run_id: str, hypothesis_id: str, location: str, message: str, data: dict[str, Any]) -> None:
+    payload = {
+        "sessionId": DEBUG_SESSION_ID,
+        "runId": run_id,
+        "hypothesisId": hypothesis_id,
+        "location": location,
+        "message": message,
+        "data": data,
+        "timestamp": int(time.time() * 1000),
+    }
+    with DEBUG_LOG_PATH.open("a", encoding="utf-8") as debug_file:
+        debug_file.write(json.dumps(payload, separators=(",", ":")) + "\n")
 
 
 class CrewCoordinator:
@@ -22,9 +40,28 @@ class CrewCoordinator:
         conversation_state = get_crew_conversation(self.database_path, session_id) or {}
         previous_response_id = conversation_state.get("latest_response_id")
         conversation_id = None
+        run_id = f"{session_id}-{int(time.time() * 1000)}"
+        stream_started_at = time.perf_counter()
+
+        # region agent log
+        _debug_log(
+            run_id=run_id,
+            hypothesis_id="H3",
+            location="crew_coordinator.py:stream_turn:start",
+            message="chat stream turn started",
+            data={
+                "message_length": len(user_message),
+                "has_previous_response_id": previous_response_id is not None,
+            },
+        )
+        # endregion
 
         try:
-            action_result = self._handle_player_action_if_needed(session_id=session_id, user_message=user_message)
+            action_result = self._handle_player_action_if_needed(
+                session_id=session_id,
+                user_message=user_message,
+                run_id=run_id,
+            )
             if action_result is not None:
                 final_text = str(action_result.get("user_message") or "").strip()
             else:
@@ -34,6 +71,20 @@ class CrewCoordinator:
 
         except Exception as error:
             raise
+
+        # region agent log
+        _debug_log(
+            run_id=run_id,
+            hypothesis_id="H3",
+            location="crew_coordinator.py:stream_turn:before_first_yield",
+            message="chat stream ready to emit first event",
+            data={
+                "elapsed_ms_before_stream": round((time.perf_counter() - stream_started_at) * 1000, 2),
+                "used_room_action": action_result is not None,
+                "final_text_length": len(final_text),
+            },
+        )
+        # endregion
 
         for token in self._chunk_text_for_stream(final_text):
             streamed_text_parts.append(token)
@@ -53,12 +104,38 @@ class CrewCoordinator:
             "latest_response_id": latest_response_id,
         }
 
-    def _handle_player_action_if_needed(self, *, session_id: str, user_message: str) -> dict[str, Any] | None:
+    def _handle_player_action_if_needed(
+        self,
+        *,
+        session_id: str,
+        user_message: str,
+        run_id: str,
+    ) -> dict[str, Any] | None:
         """Use the proven inventory and room handlers directly for action-oriented turns."""
+        action_started_at = time.perf_counter()
+        looks_like_room_action = self._looks_like_room_action(user_message)
         resolved_item = self.inventory_handler.resolve_item(session_id, user_message)
-        if resolved_item is None and not self._looks_like_room_action(user_message):
+        # region agent log
+        _debug_log(
+            run_id=run_id,
+            hypothesis_id="H4",
+            location="crew_coordinator.py:_handle_player_action_if_needed:resolved",
+            message="inventory resolution and room-action classification completed",
+            data={
+                "elapsed_ms": round((time.perf_counter() - action_started_at) * 1000, 2),
+                "looks_like_room_action": looks_like_room_action,
+                "resolved_item_key": resolved_item["item_key"] if resolved_item else None,
+            },
+        )
+        # endregion
+        if resolved_item is None and not looks_like_room_action:
             return None
-        return self.room_handler.apply_action(session_id=session_id, user_message=user_message, inventory_item=resolved_item)
+        return self.room_handler.apply_action(
+            session_id=session_id,
+            user_message=user_message,
+            inventory_item=resolved_item,
+            run_id=run_id,
+        )
 
     def _run_concierge_reply(self, *, user_message: str) -> str:
         """Run a plain stateless concierge reply without native CrewAI tools."""

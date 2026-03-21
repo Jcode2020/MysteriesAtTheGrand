@@ -524,7 +524,7 @@ def create_app(
                 state_timestamp,
                 previous_state_id
             )
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         """
         select_sql = "SELECT * FROM room_table WHERE id = ?"
 

@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GPT-5.4 Mystery Noir Hotel Mood Board</title>
+    <style>
+      :root {
+        --bg: #0f1116;
+        --surface: #171a22;
+        --surface-soft: #1f2430;
+        --ink: #f5ead5;
+        --muted: #b9aa94;
+        --gold: #b38846;
+        --oxblood: #5c1f28;
+        --smoke: #69717f;
+        --line: rgba(245, 234, 213, 0.12);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: Georgia, "Times New Roman", serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top, rgba(179, 136, 70, 0.18), transparent 22%),
+          linear-gradient(180deg, #11141a 0%, var(--bg) 100%);
+      }
+
+      .page {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 40px 24px 72px;
+      }
+
+      .hero,
+      .card {
+        border-radius: 28px;
+        border: 1px solid var(--line);
+        background: linear-gradient(180deg, rgba(31, 36, 48, 0.94), rgba(23, 26, 34, 0.96));
+        box-shadow: 0 24px 90px rgba(0, 0, 0, 0.45);
+      }
+
+      .hero {
+        padding: 34px;
+      }
+
+      .eyebrow {
+        text-transform: uppercase;
+        letter-spacing: 0.28em;
+        color: var(--gold);
+        font-size: 0.85rem;
+      }
+
+      h1 {
+        margin: 12px 0;
+        font-size: clamp(2.3rem, 4vw, 4rem);
+      }
+
+      p {
+        line-height: 1.65;
+      }
+
+      .lede {
+        max-width: 760px;
+        color: var(--muted);
+        font-size: 1.08rem;
+      }
+
+      .tags,
+      .buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .tag {
+        padding: 8px 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(179, 136, 70, 0.32);
+        background: rgba(179, 136, 70, 0.08);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 20px;
+        margin-top: 24px;
+      }
+
+      .showcase {
+        display: grid;
+        grid-template-columns: 1.2fr 1fr;
+        gap: 20px;
+        margin-top: 24px;
+      }
+
+      .card {
+        padding: 24px;
+      }
+
+      .lobby-photo {
+        width: 100%;
+        display: block;
+        border-radius: 20px;
+        border: 1px solid rgba(245, 234, 213, 0.1);
+      }
+
+      .caption {
+        margin-top: 12px;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      .palette {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .swatch {
+        min-height: 96px;
+        border-radius: 16px;
+        padding: 12px;
+        display: flex;
+        align-items: end;
+        font-size: 0.76rem;
+      }
+
+      .scene {
+        padding: 22px;
+        border-radius: 22px;
+        border: 1px solid rgba(245, 234, 213, 0.1);
+        background:
+          radial-gradient(circle at top right, rgba(179, 136, 70, 0.14), transparent 28%),
+          linear-gradient(180deg, #1c212b 0%, #13161d 100%);
+      }
+
+      .screen {
+        overflow: hidden;
+        border-radius: 22px;
+        border: 1px solid rgba(245, 234, 213, 0.1);
+        background: linear-gradient(180deg, #1a1f29 0%, #12151c 100%);
+      }
+
+      .screen-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px 18px;
+        background: linear-gradient(180deg, rgba(179, 136, 70, 0.14), rgba(92, 31, 40, 0.08));
+        border-bottom: 1px solid rgba(245, 234, 213, 0.08);
+        font-size: 0.84rem;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+      }
+
+      .screen-body {
+        padding: 18px;
+        display: grid;
+        gap: 14px;
+      }
+
+      .screen-panel {
+        padding: 16px;
+        border-radius: 18px;
+        border: 1px solid rgba(245, 234, 213, 0.08);
+        background: rgba(31, 36, 48, 0.8);
+      }
+
+      .btn {
+        padding: 12px 18px;
+        border-radius: 999px;
+        font: inherit;
+        border: 1px solid transparent;
+      }
+
+      .btn-primary {
+        background: linear-gradient(180deg, #7a2f3b, var(--oxblood));
+        color: #fff4ef;
+      }
+
+      .btn-secondary {
+        background: transparent;
+        color: var(--ink);
+        border-color: rgba(245, 234, 213, 0.15);
+      }
+
+      @media (max-width: 900px) {
+        .showcase {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <div class="eyebrow">Grand Hotel Direction</div>
+        <h1>GPT-5.4 Mystery Noir Hotel</h1>
+        <p class="lede">
+          The Grand Hotel becomes shadow-heavy and suspenseful. Gold glints against darkness, voices feel guarded,
+          and every corridor suggests danger, betrayal, or a hidden witness.
+        </p>
+        <div class="tags">
+          <span class="tag">Mystery first</span>
+          <span class="tag">Higher tension</span>
+          <span class="tag">Candlelight and shadow</span>
+          <span class="tag">Cinematic contrast</span>
+        </div>
+      </section>
+
+      <section class="showcase">
+        <article class="card">
+          <h2>Lobby Room Photo</h2>
+          <img
+            class="lobby-photo"
+            src="file:///Users/johannesantoni/.cursor/projects/Users-johannesantoni-VS-Code-MysteriesAtTheGrand/assets/mystery-noir-lobby.png"
+            alt="Mystery noir luxury hotel lobby mood reference"
+          />
+          <p class="caption">
+            Use this as the visual benchmark for a darker arrival: lacquered wood, candlelight, hidden corners,
+            and a reception desk that feels like a witness to something dangerous.
+          </p>
+        </article>
+
+        <article class="card">
+          <h2>Sample Game UI</h2>
+          <div class="screen">
+            <div class="screen-top">
+              <span>Night Desk</span>
+              <span>Threat Level Rising</span>
+            </div>
+            <div class="screen-body">
+              <div class="screen-panel">
+                <div class="eyebrow" style="margin-bottom: 8px;">Scene</div>
+                <h3 style="font-size: 1.45rem; margin-top: 0;">Someone has wiped the silver knife clean.</h3>
+                <p style="color:var(--muted); margin:10px 0 0;">
+                  The lamps burn low, and the empty lobby feels staged for a confession no one intends to give.
+                </p>
+              </div>
+              <div class="screen-panel">
+                <div class="eyebrow" style="margin-bottom: 8px;">Available Actions</div>
+                <div class="buttons">
+                  <button class="btn btn-primary">Examine Knife</button>
+                  <button class="btn btn-secondary">Check Register</button>
+                  <button class="btn btn-secondary">Listen Upstairs</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="grid">
+        <article class="card">
+          <h2>Palette</h2>
+          <div class="palette">
+            <div class="swatch" style="background:#0f1116; color:#f5ead5;">Midnight Ink</div>
+            <div class="swatch" style="background:#171a22; color:#efe0c7;">Smoked Charcoal</div>
+            <div class="swatch" style="background:#b38846; color:#fff4dc;">Lamp Gold</div>
+            <div class="swatch" style="background:#5c1f28; color:#fff0f1;">Oxblood</div>
+            <div class="swatch" style="background:#69717f; color:#f2f4f8;">Hotel Smoke</div>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>Typography Feel</h2>
+          <p>
+            Titles should feel cinematic and serious, with elegant contrast. Body copy should stay crisp,
+            readable, and tension-building.
+          </p>
+        </article>
+
+        <article class="card">
+          <h2>Materials</h2>
+          <p>Dark lacquered wood, heavy drapery, polished brass, leather guest books, candlelit mirrors.</p>
+          <p><strong>UI translation:</strong> deep panels, glowing highlights, restrained gold, strong focus states.</p>
+        </article>
+
+        <article class="card">
+          <h2>Ornament Level</h2>
+          <p>
+            Moderate. Details should feel ominous and precise, not playful. Use ornament to amplify suspense,
+            not to soften it.
+          </p>
+        </article>
+      </section>
+
+      <section class="grid" style="margin-top: 20px;">
+        <article class="card">
+          <h2>Sample Interface Mood</h2>
+          <div class="scene">
+            <div class="eyebrow" style="margin-bottom: 8px;">Service Corridor</div>
+            <h3 style="font-size: 1.5rem; margin-top: 0;">Someone has wiped the silver knife clean.</h3>
+            <p style="color:var(--muted);">
+              A distant elevator bell rings, but the corridor remains empty.
+            </p>
+            <div class="buttons">
+              <button class="btn btn-primary">Examine Knife</button>
+              <button class="btn btn-secondary">Listen at Door</button>
+            </div>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>Best For</h2>
+          <p>
+            A more thriller-like mystery. Strong if suspense should dominate, but weaker if the experience should
+            primarily feel like an aspirational luxury escape.
+          </p>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

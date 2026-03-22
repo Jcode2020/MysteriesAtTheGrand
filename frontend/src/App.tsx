@@ -212,6 +212,7 @@ function App() {
       try {
         const response = await fetch(`${backendBaseUrl}/rooms/${encodeURIComponent(roomName)}/latest`, {
           credentials: "include",
+          headers: buildSessionHeaders(),
           signal,
         });
         if (!response.ok) {
@@ -227,7 +228,7 @@ function App() {
         }
       }
     },
-    [backendBaseUrl],
+    [backendBaseUrl, buildSessionHeaders, syncSessionId],
   );
 
   async function handleResetExperience(): Promise<void> {

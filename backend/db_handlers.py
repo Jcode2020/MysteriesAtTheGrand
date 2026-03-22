@@ -278,18 +278,13 @@ def ensure_session_bootstrap(
 
     now = current_timestamp()
     with get_db_connection(database_path) as connection:
-        existing_session = connection.execute(
-            "SELECT session_id FROM session_state WHERE session_id = ?",
-            (session_id,),
-        ).fetchone()
-        if existing_session is None:
-            connection.execute(
-                """
-                INSERT INTO session_state (session_id, current_room_name, created_at, updated_at)
-                VALUES (?, ?, ?, ?)
-                """,
-                (session_id, DEFAULT_CURRENT_ROOM_NAME, now, now),
-            )
+        connection.execute(
+            """
+            INSERT OR IGNORE INTO session_state (session_id, current_room_name, created_at, updated_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (session_id, DEFAULT_CURRENT_ROOM_NAME, now, now),
+        )
 
         inventory_count_row = connection.execute(
             "SELECT COUNT(*) AS inventory_count FROM inventory_table WHERE session_id = ?",

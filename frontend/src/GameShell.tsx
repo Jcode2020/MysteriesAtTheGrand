@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 
 type GameShellProps = {
   backgroundImageUrl: string | null;
@@ -72,11 +72,11 @@ function SuitcaseIcon() {
   );
 }
 
-function ChatIcon() {
+function InteractionIcon() {
   return (
     <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24">
       <path
-        d="M6.25 8.25C6.25 6.59 7.59 5.25 9.25 5.25H17.25C18.91 5.25 20.25 6.59 20.25 8.25V13.25C20.25 14.91 18.91 16.25 17.25 16.25H12L8.25 19V16.25H9.25C7.59 16.25 6.25 14.91 6.25 13.25V8.25Z"
+        d="M12 3.75L13.37 7.4L17 8.77L13.37 10.14L12 13.79L10.63 10.14L7 8.77L10.63 7.4L12 3.75Z"
         fill="none"
         stroke="currentColor"
         strokeLinecap="round"
@@ -84,17 +84,19 @@ function ChatIcon() {
         strokeWidth="1.5"
       />
       <path
-        d="M10 10.75H16.5"
+        d="M18.25 12.25L19.02 14.23L21 15L19.02 15.77L18.25 17.75L17.48 15.77L15.5 15L17.48 14.23L18.25 12.25Z"
         fill="none"
         stroke="currentColor"
         strokeLinecap="round"
+        strokeLinejoin="round"
         strokeWidth="1.5"
       />
       <path
-        d="M10 13.25H14.5"
+        d="M6.25 13.25L6.93 15.07L8.75 15.75L6.93 16.43L6.25 18.25L5.57 16.43L3.75 15.75L5.57 15.07L6.25 13.25Z"
         fill="none"
         stroke="currentColor"
         strokeLinecap="round"
+        strokeLinejoin="round"
         strokeWidth="1.5"
       />
     </svg>
@@ -155,6 +157,32 @@ function GameShell({
 }: GameShellProps) {
   const formattedRoomName = formatRoomName(roomName);
   const lastAssistantMessage = [...chatMessages].reverse().find((message) => message.role === "assistant");
+  const chatScrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const shouldStickToBottomRef = useRef(true);
+
+  useEffect(() => {
+    if (!isChatOpen || !chatScrollContainerRef.current) {
+      return;
+    }
+
+    const chatScrollContainer = chatScrollContainerRef.current;
+    const distanceFromBottom =
+      chatScrollContainer.scrollHeight - chatScrollContainer.clientHeight - chatScrollContainer.scrollTop;
+    if (shouldStickToBottomRef.current || distanceFromBottom < 48) {
+      chatScrollContainer.scrollTop = chatScrollContainer.scrollHeight;
+      shouldStickToBottomRef.current = true;
+    }
+  }, [chatMessages, isChatOpen, isStreamingChat]);
+
+  useEffect(() => {
+    if (!isChatOpen || !chatScrollContainerRef.current) {
+      return;
+    }
+
+    const chatScrollContainer = chatScrollContainerRef.current;
+    chatScrollContainer.scrollTop = chatScrollContainer.scrollHeight;
+    shouldStickToBottomRef.current = true;
+  }, [isChatOpen]);
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#120d0a] text-parchment">
@@ -207,7 +235,7 @@ function GameShell({
       ) : null}
 
       {isInventoryOpen ? (
-        <aside className="absolute bottom-8 left-8 top-24 z-30 flex w-[22rem] flex-col rounded-[28px] border border-[#b08a3e]/35 bg-[rgba(252,246,238,0.92)] p-6 text-walnut-ink shadow-[0_24px_80px_rgba(0,0,0,0.35)] backdrop-blur-md">
+        <aside className="absolute bottom-28 left-8 z-30 flex max-h-[min(68vh,34rem)] min-h-0 w-[min(22rem,calc(100vw-4rem))] flex-col rounded-[28px] border border-[#b08a3e]/35 bg-[rgba(252,246,238,0.92)] p-6 text-walnut-ink shadow-[0_24px_80px_rgba(0,0,0,0.35)] backdrop-blur-md">
           <p className="text-[11px] uppercase tracking-[0.34em] text-[#6f584b]">Travel Effects</p>
           <div className="mt-4 flex items-center justify-between border-y border-[rgba(45,29,22,0.12)] py-4">
             <div>
@@ -223,7 +251,7 @@ function GameShell({
             </button>
           </div>
 
-          <div className="mt-6 grid grid-cols-3 gap-3">
+          <div className="mt-6 grid flex-1 auto-rows-max grid-cols-3 gap-3 overflow-y-auto pr-1">
             {inventoryItems.length > 0 ? (
               inventoryItems.map((item) => (
                 <article
@@ -259,13 +287,14 @@ function GameShell({
       ) : null}
 
       {isChatOpen ? (
-        <aside className="absolute bottom-8 right-8 top-28 z-30 flex w-[25rem] flex-col rounded-[28px] border border-white/12 bg-[rgba(45,29,22,0.78)] p-6 text-parchment shadow-[0_24px_80px_rgba(0,0,0,0.38)] backdrop-blur-md">
-          <div className="border-b border-white/10 pb-4">
-            <p className="text-[11px] uppercase tracking-[0.34em] text-white/55">Hotel Exchange</p>
-            <div className="mt-3 flex items-center justify-between">
+        <aside
+          className="absolute bottom-26 right-8 z-30 flex max-h-[min(78vh,42rem)] min-h-0 w-[min(31rem,calc(100vw-3rem))] flex-col rounded-[28px] border border-white/12 bg-[rgba(45,29,22,0.78)] p-4 text-parchment shadow-[0_24px_80px_rgba(0,0,0,0.38)] backdrop-blur-md"
+        >
+          <div className="border-b border-white/10 pb-3">
+            <p className="text-[11px] uppercase tracking-[0.34em] text-white/55">World Interaction</p>
+            <div className="mt-2 flex items-center justify-between gap-3">
               <div>
-                <h2 className="font-display text-[1.85rem] leading-none">Chat Desk</h2>
-                <p className="mt-2 text-[12px] uppercase tracking-[0.24em] text-[#b08a3e]">Private Concierge Wire</p>
+                <h2 className="font-display text-[1.55rem] leading-none">Interaction</h2>
               </div>
               <button
                 type="button"
@@ -277,23 +306,31 @@ function GameShell({
             </div>
           </div>
 
-          <div className="mt-6 flex-1 overflow-hidden rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(243,234,223,0.1)_0%,rgba(243,234,223,0.04)_100%)] p-5">
-            <p className="text-[11px] uppercase tracking-[0.28em] text-white/50">Front Office</p>
-            <div className="mt-4 flex h-full max-h-[calc(100%-2.25rem)] flex-col gap-3 overflow-y-auto pr-1">
+          <div className="mt-3 flex min-h-0 flex-1 overflow-hidden rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(243,234,223,0.1)_0%,rgba(243,234,223,0.04)_100%)] p-3">
+            <div
+              ref={chatScrollContainerRef}
+              className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto overscroll-contain pr-2"
+              onScroll={(event) => {
+                const chatScrollContainer = event.currentTarget;
+                const distanceFromBottom =
+                  chatScrollContainer.scrollHeight - chatScrollContainer.clientHeight - chatScrollContainer.scrollTop;
+                shouldStickToBottomRef.current = distanceFromBottom < 48;
+              }}
+            >
               {chatMessages.map((message) => (
                 <article
                   key={message.id}
                   className={
                     message.role === "user"
-                      ? "ml-10 rounded-[20px] border border-[#b08a3e]/24 bg-[rgba(176,138,62,0.14)] px-4 py-3 text-sm leading-7 text-[#fcf6ee]"
-                      : "mr-10 rounded-[20px] border border-white/10 bg-[rgba(243,234,223,0.08)] px-4 py-3 text-sm leading-7 text-[#fcf6ee]"
+                      ? "ml-8 rounded-[18px] border border-[#b08a3e]/24 bg-[rgba(176,138,62,0.14)] px-3 py-2.5 text-sm leading-6 text-[#fcf6ee]"
+                      : "mr-8 rounded-[18px] border border-white/10 bg-[rgba(243,234,223,0.08)] px-3 py-2.5 text-sm leading-6 text-[#fcf6ee]"
                   }
                 >
-                  <p className="text-[10px] uppercase tracking-[0.22em] text-white/45">
-                    {message.role === "user" ? "Guest" : "Concierge"}
+                  <p className="text-[9px] uppercase tracking-[0.2em] text-white/45">
+                    {message.role === "user" ? "Guest" : "Grand Pannonia Hotel"}
                   </p>
-                  <p className="mt-2 whitespace-pre-wrap">
-                    {message.content || (isStreamingChat && lastAssistantMessage?.id === message.id ? "..." : "")}
+                  <p className="mt-1.5 whitespace-pre-wrap">
+                    {message.content || (isStreamingChat && lastAssistantMessage?.id === message.id ? <span className="typing-dots" aria-label="Grand Pannonia Hotel is responding"><span>.</span><span>.</span><span>.</span></span> : "")}
                   </p>
                 </article>
               ))}
@@ -301,36 +338,43 @@ function GameShell({
           </div>
 
           {chatError ? (
-            <div className="mt-4 rounded-[18px] border border-[#6f2430]/28 bg-[rgba(111,36,48,0.12)] px-4 py-3 text-sm leading-6 text-[#f7d6da]">
+            <div className="mt-3 rounded-[18px] border border-[#6f2430]/28 bg-[rgba(111,36,48,0.12)] px-3 py-2.5 text-sm leading-6 text-[#f7d6da]">
               {chatError}
             </div>
           ) : null}
 
           <form
-            className="mt-4 rounded-[20px] border border-white/10 bg-black/10 p-3"
+            className="mt-3 rounded-[20px] border border-white/10 bg-black/10 p-2.5"
             onSubmit={(event) => {
               event.preventDefault();
               onSendChatMessage(chatDraft);
             }}
           >
             <label className="sr-only" htmlFor="chat-composer">
-              Message the concierge
+              Message Grand Pannonia Hotel
             </label>
             <textarea
               id="chat-composer"
-              className="min-h-[5.5rem] w-full resize-none rounded-[16px] border border-white/10 bg-[rgba(252,246,238,0.06)] px-4 py-3 text-sm leading-6 text-[#fcf6ee] outline-none placeholder:text-white/35 focus:border-[#b08a3e]/45"
-              placeholder="Ask a question or tell the concierge what you want to do..."
+              className="min-h-[3.5rem] max-h-28 w-full resize-none rounded-[16px] border border-white/10 bg-[rgba(252,246,238,0.06)] px-3 py-2.5 text-sm leading-5 text-[#fcf6ee] outline-none placeholder:text-white/35 focus:border-[#b08a3e]/45"
+              placeholder="Tell me how you want to interact with the world"
               value={chatDraft}
               onChange={(event) => onChatDraftChange(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter") {
+                  return;
+                }
+                if (!event.shiftKey) {
+                  event.preventDefault();
+                  onSendChatMessage(chatDraft);
+                }
+              }}
               disabled={isStreamingChat}
             />
-            <div className="mt-3 flex items-center justify-between gap-3">
-              <p className="text-[11px] uppercase tracking-[0.2em] text-white/42">
-                {isStreamingChat ? "Receiving reply..." : "Short messages work best"}
-              </p>
+            <div className="mt-2 flex items-center justify-between gap-3">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-white/42">{isStreamingChat ? "Grand Pannonia Hotel is responding..." : ""}</p>
               <button
                 type="submit"
-                className="rounded-full border border-[#b08a3e]/24 bg-[linear-gradient(180deg,rgba(111,36,48,0.96)_0%,rgba(79,23,34,0.98)_100%)] px-4 py-2 text-[11px] uppercase tracking-[0.24em] text-[#fcf6ee] transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-55"
+                className="rounded-full border border-[#b08a3e]/24 bg-[linear-gradient(180deg,rgba(111,36,48,0.96)_0%,rgba(79,23,34,0.98)_100%)] px-4 py-2 text-[10px] uppercase tracking-[0.22em] text-[#fcf6ee] transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-55"
                 disabled={isStreamingChat || chatDraft.trim().length === 0}
               >
                 Send
@@ -386,8 +430,8 @@ function GameShell({
         aria-pressed={isChatOpen}
         onClick={onToggleChat}
       >
-        <ChatIcon />
-        <span className="text-[12px] uppercase tracking-[0.28em]">Chat Desk</span>
+        <InteractionIcon />
+        <span className="text-[12px] uppercase tracking-[0.28em]">Interaction</span>
       </button>
     </main>
   );

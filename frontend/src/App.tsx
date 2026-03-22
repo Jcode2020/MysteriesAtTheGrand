@@ -11,8 +11,7 @@ declare const __APP_BACKEND_PORT__: string;
 const HAS_STARTED_STORAGE_KEY = "grand-pannonia-has-started";
 const CONSENT_ACCEPTED_STORAGE_KEY = "grand-pannonia-prototype-consent";
 const SESSION_HEADER_NAME = "X-Grand-Pannonia-Session-Id";
-const INITIAL_ASSISTANT_MESSAGE =
-  "Welcome to the Grand Pannonia Hotel. Tell me what you would like to do, and I will keep it brief.";
+const INITIAL_ASSISTANT_MESSAGE = "Interact with the entire world just by chatting with me";
 
 type RoomStateResponse = {
   room_description?: string | null;
@@ -432,7 +431,7 @@ function App() {
               const streamMessage =
                 typeof parsedEvent.payload.message === "string"
                   ? parsedEvent.payload.message
-                  : "The concierge could not complete that request.";
+                  : "Grand Pannonia Hotel could not complete that request.";
               throw new Error(streamMessage);
             }
           }
@@ -445,7 +444,7 @@ function App() {
       } catch (error) {
         console.error("Could not complete the chat request.", error);
         const fallbackMessage =
-          error instanceof Error ? error.message : "The concierge could not complete that request.";
+          error instanceof Error ? error.message : "Grand Pannonia Hotel could not complete that request.";
         setChatError(fallbackMessage);
         setChatMessages((currentMessages) =>
           currentMessages.map((chatMessage) =>

@@ -304,21 +304,23 @@ def _ensure_session_id() -> str:
         return generated_session_id
 
     header_session_id = _resolve_header_session_id()
+    existing_session_id = request.cookies.get(SESSION_COOKIE_NAME)
+    selected_session_id: str
     if header_session_id:
         g.session_id = header_session_id
         g.should_set_session_cookie = False
-        return header_session_id
-
-    existing_session_id = request.cookies.get(SESSION_COOKIE_NAME)
-    if existing_session_id:
+        selected_session_id = header_session_id
+    elif existing_session_id:
         g.session_id = existing_session_id
         g.should_set_session_cookie = False
-        return existing_session_id
+        selected_session_id = existing_session_id
+    else:
+        new_session_id = _generate_session_id()
+        g.should_set_session_cookie = True
+        g.session_id = new_session_id
+        selected_session_id = new_session_id
 
-    new_session_id = _generate_session_id()
-    g.should_set_session_cookie = True
-    g.session_id = new_session_id
-    return new_session_id
+    return selected_session_id
 
 
 def _attach_session_cookie(response: Response, session_id: str, app: Flask) -> Response:

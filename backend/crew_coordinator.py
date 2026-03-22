@@ -62,7 +62,7 @@ class CrewCoordinator:
         return self.room_handler.apply_action(session_id=session_id, user_message=user_message, inventory_item=resolved_item)
 
     def _run_concierge_reply(self, *, user_message: str) -> str:
-        """Run a plain stateless concierge reply without native CrewAI tools."""
+        """Run a plain stateless in-world hotel reply without native CrewAI tools."""
         try:
             from crewai import Agent, LLM
         except ImportError as error:
@@ -72,8 +72,8 @@ class CrewCoordinator:
             role="Crew Coordinator",
             goal="Reply to the player concisely and stay in world.",
             backstory=(
-                "You are the private concierge wire for the Grand Pannonia Hotel. "
-                "You keep the conversation short, natural, and useful."
+                "You speak for Grand Pannonia Hotel inside the world interaction channel. "
+                "You keep the conversation short, natural, useful, and fully in world."
             ),
             llm=LLM(**build_crewai_llm_kwargs(stream=False)),
             verbose=False,
@@ -92,7 +92,7 @@ class CrewCoordinator:
         )
         final_text = getattr(result, "raw", "") or str(result)
         if not final_text.strip():
-            raise ValueError("The concierge reply was empty.")
+            raise ValueError("The hotel reply was empty.")
         return final_text
 
     def _looks_like_room_action(self, user_message: str) -> bool:
@@ -172,8 +172,8 @@ class CrewCoordinator:
             role="Crew Coordinator",
             goal="Reply to the player concisely and coordinate inventory and room actions through the handler tools.",
             backstory=(
-                "You are the private concierge wire for the Grand Pannonia Hotel. You keep the conversation short, "
-                "natural, and useful, and you call specialist handlers whenever the player wants to use inventory or "
+                "You speak for Grand Pannonia Hotel inside the world interaction channel. You keep the conversation short, "
+                "natural, useful, and fully in world, and you call specialist handlers whenever the player wants to use inventory or "
                 "change the room."
             ),
             llm=LLM(

@@ -17,6 +17,7 @@ from db_handlers import (
     list_room_states as fetch_room_states,
     load_seed_manifest,
     reset_session_progress as clear_session_progress,
+    seed_npc_registry,
     seed_persistent_room_states,
     validate_room_state_payload,
     create_room_state as insert_room_state,
@@ -402,12 +403,14 @@ def create_app(
     app.config["PERSISTENT_ROOM_SEED_MANIFEST_PATH"] = resolved_seed_manifest_path
     app.config["PERSISTENT_ROOM_SEED_ENTRIES"] = seed_manifest["persistent_rooms"]
     app.config["STARTER_INVENTORY_SEED_ENTRIES"] = seed_manifest["starter_inventory"]
+    app.config["NPC_REGISTRY_SEED_ENTRIES"] = seed_manifest["npc_entries"]
 
     if app.config["SESSION_COOKIE_SAMESITE"] == "None" and not app.config["SESSION_COOKIE_SECURE"]:
         raise ValueError("SESSION_COOKIE_SAMESITE=None requires SESSION_COOKIE_SECURE=true")
 
     initialize_database(resolved_database_path, resolved_schema_path)
     seed_persistent_room_states(resolved_database_path, app.config["PERSISTENT_ROOM_SEED_ENTRIES"])
+    seed_npc_registry(resolved_database_path, app.config["NPC_REGISTRY_SEED_ENTRIES"])
     logger.info("Initialized room state database at %s", resolved_database_path)
     if configured_log_file_path is not None:
         logger.info("Backend logging also writes to %s", configured_log_file_path)

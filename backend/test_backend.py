@@ -10,7 +10,17 @@ from unittest.mock import patch
 
 import backend as backend_module
 from backend import create_app
-from db_handlers import get_crew_conversation, upsert_crew_conversation
+from crew_coordinator import CrewCoordinator
+from db_handlers import (
+    append_conversation_message,
+    get_conversation_thread,
+    get_deterministic_rule_state,
+    get_npc_registry_entry,
+    set_current_room_name,
+    set_deterministic_rule_state,
+    upsert_conversation_thread,
+)
+from npcs.crew_npc_receptionist import CrewNpcReceptionist
 
 ONE_PIXEL_PNG_BASE64 = (
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8"
@@ -59,12 +69,15 @@ class BackendApiTests(unittest.TestCase):
         seed_root = Path(self.temp_dir.name) / "seed"
         images_dir = seed_root / "images"
         inventory_dir = seed_root / "inventory"
+        npc_dir = seed_root / "npcs"
         images_dir.mkdir(parents=True, exist_ok=True)
         inventory_dir.mkdir(parents=True, exist_ok=True)
+        npc_dir.mkdir(parents=True, exist_ok=True)
 
         (images_dir / "lobby.png").write_bytes(base64.b64decode(ONE_PIXEL_PNG_BASE64))
         for item_name in ["pen", "book", "contract", "cash", "teddy", "watch", "scarf"]:
             (inventory_dir / f"{item_name}.png").write_bytes(base64.b64decode(ONE_PIXEL_PNG_BASE64))
+        (npc_dir / "receptionist_head.png").write_bytes(base64.b64decode(ONE_PIXEL_PNG_BASE64))
 
         manifest_path = seed_root / "manifest.json"
         manifest_path.write_text(
@@ -131,6 +144,14 @@ class BackendApiTests(unittest.TestCase):
                             "image_media_type": "image/png",
                         },
                     ],
+                    "npc_entries": [
+                        {
+                            "npc_id": "receptionist",
+                            "npc_label": "Receptionist",
+                            "portrait_path": "npcs/receptionist_head.png",
+                            "image_media_type": "image/png",
+                        }
+                    ],
                 },
                 indent=2,
             ),
@@ -171,6 +192,15 @@ class BackendApiTests(unittest.TestCase):
         self.assertEqual(session_response.get_json()["current_room_name"], "lobby")
         self.assertEqual(len(inventory_response.get_json()), 7)
         self.assertEqual(inventory_response.get_json()[-1]["item_key"], "scarf")
+
+    def test_npc_registry_seeds_receptionist_portrait(self) -> None:
+        receptionist_entry = get_npc_registry_entry(self.database_path, "receptionist")
+
+        self.assertIsNotNone(receptionist_entry)
+        assert receptionist_entry is not None
+        self.assertEqual(receptionist_entry["npc_label"], "Receptionist")
+        self.assertEqual(receptionist_entry["image_media_type"], "image/png")
+        self.assertTrue(receptionist_entry["portrait_image_base64"])
 
     def test_opening_theme_streams_the_committed_audio_file(self) -> None:
         response = self.client.get("/audio/opening-theme")
@@ -254,7 +284,37 @@ class BackendApiTests(unittest.TestCase):
                 "state_timestamp": "2026-03-21T12:05:00+00:00",
             },
         )
-        upsert_crew_conversation(self.database_path, session_id, "conv_test", "resp_test")
+        upsert_conversation_thread(
+            self.database_path,
+            session_id,
+            "receptionist",
+            "Receptionist",
+            "conv_test",
+            "resp_test",
+        )
+        append_conversation_message(
+            self.database_path,
+            session_id,
+            "receptionist",
+            "Receptionist",
+            "user",
+            "Good evening.",
+        )
+        append_conversation_message(
+            self.database_path,
+            session_id,
+            "receptionist",
+            "Receptionist",
+            "assistant",
+            "Good evening, madam.",
+        )
+        set_deterministic_rule_state(
+            self.database_path,
+            session_id,
+            "receptionist",
+            "teddy_gifted",
+            "true",
+        )
 
         reset_response = self.client.post("/session/reset")
 
@@ -262,9 +322,12 @@ class BackendApiTests(unittest.TestCase):
         reset_payload = reset_response.get_json()
         self.assertEqual(reset_payload["deleted_room_states"], 1)
         self.assertEqual(reset_payload["deleted_inventory_items"], 7)
-        self.assertEqual(reset_payload["deleted_crew_convos"], 1)
+        self.assertEqual(reset_payload["deleted_conversation_threads"], 1)
+        self.assertEqual(reset_payload["deleted_conversation_messages"], 2)
+        self.assertEqual(reset_payload["deleted_deterministic_rules"], 1)
         self.assertEqual(reset_payload["deleted_session_rows"], 1)
-        self.assertIsNone(get_crew_conversation(self.database_path, session_id))
+        self.assertIsNone(get_conversation_thread(self.database_path, session_id, "receptionist"))
+        self.assertIsNone(get_deterministic_rule_state(self.database_path, session_id, "receptionist", "teddy_gifted"))
 
         with sqlite3.connect(self.database_path) as connection:
             remaining_inventory = connection.execute(
@@ -289,13 +352,31 @@ class BackendApiTests(unittest.TestCase):
         self.client.get("/session/state")
         mock_stream_turn.return_value = iter(
             [
-                {"type": "delta", "content": "Welcome "},
-                {"type": "delta", "content": "back."},
+                {
+                    "type": "delta",
+                    "content": "Welcome ",
+                    "speaker_id": "receptionist",
+                    "speaker_label": "Receptionist",
+                    "speaker_portrait_base64": ONE_PIXEL_PNG_BASE64,
+                    "speaker_image_media_type": "image/png",
+                },
+                {
+                    "type": "delta",
+                    "content": "back.",
+                    "speaker_id": "receptionist",
+                    "speaker_label": "Receptionist",
+                    "speaker_portrait_base64": ONE_PIXEL_PNG_BASE64,
+                    "speaker_image_media_type": "image/png",
+                },
                 {
                     "type": "complete",
                     "content": "Welcome back.",
-                    "openai_conversation_id": "conv_123",
-                    "latest_response_id": "resp_123",
+                    "speaker_id": "receptionist",
+                    "speaker_label": "Receptionist",
+                    "speaker_portrait_base64": ONE_PIXEL_PNG_BASE64,
+                    "speaker_image_media_type": "image/png",
+                    "openai_conversation_id": None,
+                    "latest_response_id": None,
                 },
             ]
         )
@@ -307,8 +388,92 @@ class BackendApiTests(unittest.TestCase):
         response_text = response.get_data(as_text=True)
         self.assertIn("event: delta", response_text)
         self.assertIn('"content": "Welcome "', response_text)
+        self.assertIn('"speaker_label": "Receptionist"', response_text)
+        self.assertIn('"speaker_image_media_type": "image/png"', response_text)
         self.assertIn("event: complete", response_text)
         mock_stream_turn.assert_called_once()
+
+    def test_receptionist_refuses_outside_lobby(self) -> None:
+        self.client.get("/session/state")
+        session_id = self._fetch_first_runtime_session_id()
+        set_current_room_name(self.database_path, session_id, "suite")
+
+        coordinator = CrewCoordinator(self.database_path)
+        events = list(coordinator.stream_turn(session_id, "Receptionist, are you there?"))
+
+        self.assertEqual(events[-1]["speaker_label"], "Grand Pannonia Hotel")
+        self.assertIn("not here", events[-1]["content"].lower())
+
+    @patch("crew_coordinator.CrewNpcReceptionist.generate_reply")
+    def test_receptionist_gift_consumes_teddy_and_streams_speaker_metadata(self, mock_generate_reply: Any) -> None:
+        self.client.get("/session/state")
+        session_id = self._fetch_first_runtime_session_id()
+        mock_generate_reply.return_value = {
+            "speaker_id": "receptionist",
+            "speaker_label": "Receptionist",
+            "content": "What a charming little bear. You are very kind.",
+            "revealed_secret": False,
+        }
+
+        coordinator = CrewCoordinator(self.database_path)
+        events = list(coordinator.stream_turn(session_id, "I give the receptionist the teddy bear."))
+
+        inventory_response = self.client.get("/inventory")
+        inventory_keys = [item["item_key"] for item in inventory_response.get_json()]
+        self.assertNotIn("teddy", inventory_keys)
+        self.assertEqual(events[-1]["speaker_id"], "receptionist")
+        self.assertEqual(events[-1]["speaker_label"], "Receptionist")
+        self.assertEqual(events[-1]["speaker_image_media_type"], "image/png")
+        self.assertTrue(events[-1]["speaker_portrait_base64"])
+        self.assertEqual(
+            get_deterministic_rule_state(self.database_path, session_id, "receptionist", "teddy_gifted"),
+            "true",
+        )
+
+    @patch("crew_coordinator.CrewNpcReceptionist.generate_reply")
+    def test_receptionist_secret_reveal_persists_rule_state(self, mock_generate_reply: Any) -> None:
+        self.client.get("/session/state")
+        session_id = self._fetch_first_runtime_session_id()
+        set_deterministic_rule_state(
+            self.database_path,
+            session_id,
+            "receptionist",
+            "teddy_gifted",
+            "true",
+        )
+        mock_generate_reply.return_value = {
+            "speaker_id": "receptionist",
+            "speaker_label": "Receptionist",
+            "content": "Very well. Andrea Richter stayed in Room 404.",
+            "revealed_secret": True,
+        }
+
+        coordinator = CrewCoordinator(self.database_path)
+        events = list(coordinator.stream_turn(session_id, "Receptionist, tell me what you know about Andrea Richter."))
+
+        self.assertEqual(events[-1]["speaker_label"], "Receptionist")
+        self.assertEqual(
+            get_deterministic_rule_state(self.database_path, session_id, "receptionist", "secret_revealed"),
+            "true",
+        )
+
+    def test_receptionist_force_reveal_rule_turns_true_after_teddy_gift_and_direct_question(self) -> None:
+        receptionist = CrewNpcReceptionist(self.database_path)
+
+        self.assertTrue(
+            receptionist.should_force_secret_reveal(
+                user_message="Receptionist, which room did Andrea Richter stay in?",
+                teddy_gifted=True,
+                secret_already_revealed=False,
+            )
+        )
+        self.assertFalse(
+            receptionist.should_force_secret_reveal(
+                user_message="Receptionist, tell me about the lobby.",
+                teddy_gifted=True,
+                secret_already_revealed=False,
+            )
+        )
 
     def test_logging_falls_back_to_terminal_when_repo_logs_directory_is_missing(self) -> None:
         self._reset_backend_logger()

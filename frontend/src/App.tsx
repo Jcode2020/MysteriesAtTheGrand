@@ -48,6 +48,9 @@ type ChatMessage = {
   content: string;
   id: string;
   role: "assistant" | "user";
+  speakerId?: string;
+  speakerLabel?: string;
+  speakerPortraitSrc?: string;
 };
 
 type ParsedSseEvent = {
@@ -71,7 +74,15 @@ function getBackendBaseUrl(): string {
 }
 
 function createInitialMessages(): ChatMessage[] {
-  return [{ id: "assistant-welcome", role: "assistant", content: INITIAL_ASSISTANT_MESSAGE }];
+  return [
+    {
+      id: "assistant-welcome",
+      role: "assistant",
+      content: INITIAL_ASSISTANT_MESSAGE,
+      speakerId: "hotel_world",
+      speakerLabel: "Grand Pannonia Hotel",
+    },
+  ];
 }
 
 function parseSseEvent(rawEvent: string): ParsedSseEvent | null {
@@ -97,6 +108,16 @@ function parseSseEvent(rawEvent: string): ParsedSseEvent | null {
     eventName,
     payload: JSON.parse(dataLines.join("\n")) as Record<string, unknown>,
   };
+}
+
+function buildSpeakerPortraitSrc(payload: Record<string, unknown>, fallbackSrc?: string): string | undefined {
+  const portraitBase64 =
+    typeof payload.speaker_portrait_base64 === "string" ? payload.speaker_portrait_base64 : undefined;
+  const mediaType = typeof payload.speaker_image_media_type === "string" ? payload.speaker_image_media_type : undefined;
+  if (portraitBase64 && mediaType) {
+    return `data:${mediaType};base64,${portraitBase64}`;
+  }
+  return fallbackSrc;
 }
 
 function App() {
@@ -348,8 +369,14 @@ function App() {
       setIsStreamingChat(true);
       setChatMessages((currentMessages) => [
         ...currentMessages,
-        { id: userMessageId, role: "user", content: trimmedMessage },
-        { id: assistantMessageId, role: "assistant", content: "" },
+        { id: userMessageId, role: "user", content: trimmedMessage, speakerLabel: "Guest" },
+        {
+          id: assistantMessageId,
+          role: "assistant",
+          content: "",
+          speakerId: "hotel_world",
+          speakerLabel: "Grand Pannonia Hotel",
+        },
       ]);
 
       const controller = new AbortController();
@@ -411,7 +438,19 @@ function App() {
               setChatMessages((currentMessages) =>
                 currentMessages.map((chatMessage) =>
                   chatMessage.id === assistantMessageId
-                    ? { ...chatMessage, content: chatMessage.content + parsedEvent.payload.content }
+                    ? {
+                        ...chatMessage,
+                        content: chatMessage.content + parsedEvent.payload.content,
+                        speakerId:
+                          typeof parsedEvent.payload.speaker_id === "string"
+                            ? parsedEvent.payload.speaker_id
+                            : chatMessage.speakerId,
+                        speakerLabel:
+                          typeof parsedEvent.payload.speaker_label === "string"
+                            ? parsedEvent.payload.speaker_label
+                            : chatMessage.speakerLabel,
+                        speakerPortraitSrc: buildSpeakerPortraitSrc(parsedEvent.payload, chatMessage.speakerPortraitSrc),
+                      }
                     : chatMessage,
                 ),
               );
@@ -420,8 +459,20 @@ function App() {
             if (parsedEvent.eventName === "complete" && typeof parsedEvent.payload.content === "string") {
               setChatMessages((currentMessages) =>
                 currentMessages.map((chatMessage) =>
-                  chatMessage.id === assistantMessageId && chatMessage.content.length === 0
-                    ? { ...chatMessage, content: parsedEvent.payload.content }
+                  chatMessage.id === assistantMessageId
+                    ? {
+                        ...chatMessage,
+                        content: chatMessage.content.length === 0 ? parsedEvent.payload.content : chatMessage.content,
+                        speakerId:
+                          typeof parsedEvent.payload.speaker_id === "string"
+                            ? parsedEvent.payload.speaker_id
+                            : chatMessage.speakerId,
+                        speakerLabel:
+                          typeof parsedEvent.payload.speaker_label === "string"
+                            ? parsedEvent.payload.speaker_label
+                            : chatMessage.speakerLabel,
+                        speakerPortraitSrc: buildSpeakerPortraitSrc(parsedEvent.payload, chatMessage.speakerPortraitSrc),
+                      }
                     : chatMessage,
                 ),
               );

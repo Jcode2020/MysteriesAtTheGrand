@@ -59,5 +59,13 @@
       "image_path": "inventory/scarf.png",
       "image_media_type": "image/png"
     }
+  ],
+  "npc_entries": [
+    {
+      "npc_id": "receptionist",
+      "npc_label": "Receptionist",
+      "portrait_path": "npcs/receptionist_head.png",
+      "image_media_type": "image/png"
+    }
   ]
 }

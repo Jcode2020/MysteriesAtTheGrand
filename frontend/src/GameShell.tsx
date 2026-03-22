@@ -35,6 +35,9 @@ type ChatMessage = {
   id: string;
   role: "assistant" | "user";
   content: string;
+  speakerId?: string;
+  speakerLabel?: string;
+  speakerPortraitSrc?: string;
 };
 
 function SuitcaseIcon() {
@@ -323,11 +326,29 @@ function GameShell({
                   className={
                     message.role === "user"
                       ? "ml-8 rounded-[18px] border border-[#b08a3e]/24 bg-[rgba(176,138,62,0.14)] px-3 py-2.5 text-sm leading-6 text-[#fcf6ee]"
-                      : "mr-8 rounded-[18px] border border-white/10 bg-[rgba(243,234,223,0.08)] px-3 py-2.5 text-sm leading-6 text-[#fcf6ee]"
+                      : message.speakerId === "receptionist"
+                        ? "mr-8 relative rounded-[18px] border border-[#b08a3e]/28 bg-[linear-gradient(180deg,rgba(49,70,58,0.94)_0%,rgba(37,54,44,0.96)_100%)] px-3 py-2.5 pr-14 text-sm leading-6 text-[#fcf6ee] shadow-[0_14px_32px_rgba(0,0,0,0.2)]"
+                        : "mr-8 rounded-[18px] border border-white/10 bg-[rgba(243,234,223,0.08)] px-3 py-2.5 text-sm leading-6 text-[#fcf6ee]"
                   }
                 >
-                  <p className="text-[9px] uppercase tracking-[0.2em] text-white/45">
-                    {message.role === "user" ? "Guest" : "Grand Pannonia Hotel"}
+                  {message.role === "assistant" && message.speakerId === "receptionist" && message.speakerPortraitSrc ? (
+                    <div className="absolute right-3 top-3 overflow-hidden rounded-full border border-[#b08a3e]/45 bg-[rgba(252,246,238,0.18)] shadow-[0_8px_18px_rgba(0,0,0,0.22)]">
+                      <img
+                        className="h-10 w-10 object-cover object-center"
+                        src={message.speakerPortraitSrc}
+                        alt=""
+                        aria-hidden="true"
+                      />
+                    </div>
+                  ) : null}
+                  <p
+                    className={
+                      message.role === "assistant" && message.speakerId === "receptionist"
+                        ? "text-[9px] uppercase tracking-[0.2em] text-[#e9d8c0]"
+                        : "text-[9px] uppercase tracking-[0.2em] text-white/45"
+                    }
+                  >
+                    {message.role === "user" ? "Guest" : message.speakerLabel || "Grand Pannonia Hotel"}
                   </p>
                   <p className="mt-1.5 whitespace-pre-wrap">
                     {message.content || (isStreamingChat && lastAssistantMessage?.id === message.id ? <span className="typing-dots" aria-label="Grand Pannonia Hotel is responding"><span>.</span><span>.</span><span>.</span></span> : "")}

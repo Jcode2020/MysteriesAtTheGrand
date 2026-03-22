@@ -24,7 +24,7 @@
 - The backend will auto-create the local SQLite database at `db/hotel_db.sqlite3` unless `ROOM_DB_PATH` is set.
 - Persistent room bootstrap data comes from `backend/seed/persistent/manifest.json` unless `PERSISTENT_ROOM_SEED_MANIFEST_PATH` is set.
 - Set `VITE_BACKEND_URL` in `.env.dev` if you want an explicit frontend override for the backend API. When it is left empty during local development, the frontend now falls back to the same `BACKEND_HOST` and `BACKEND_PORT` values used by `startDevFrontAndBackend.sh`.
-- The backend uses an anonymous session cookie so each visitor gets an isolated room-state timeline, suitcase inventory, current-room pointer, and OpenAI conversation pointer.
+- The backend uses an anonymous session cookie so each visitor gets an isolated room-state timeline, suitcase inventory, current-room pointer, NPC/world conversation threads, and deterministic NPC rule state.
 
 ## Environment Templates
 - Dev: copy `.env.dev.example` to `.env.dev`.
@@ -53,8 +53,12 @@
 - The earliest state for a room can use `session_id = persistent` to act as the shared base state that every session sees first.
 - `session_state` stores the active room for each anonymous visitor session.
 - `inventory_table` stores the session-scoped suitcase inventory, seeded from committed backend assets.
-- `crew_convos` stores the session-scoped OpenAI conversation pointer metadata used by the CrewAI coordinator.
+- `npc_registry` stores committed NPC metadata such as labels and portrait images.
+- `conversation_threads` stores session-scoped world and NPC conversation metadata.
+- `conversation_messages` stores the persisted chat history for each session-scoped speaker thread.
+- `deterministic_rule_state` stores deterministic NPC rule flags such as gifted items or already-revealed secrets.
 - Persistent room and inventory definitions live in `backend/seed/persistent/manifest.json`, and the committed assets it references are the source of truth for required base states.
+- Canonical lore assets now live in `backend/lore/`.
 - The current start-screen lobby image is seeded into `room_table` from `backend/seed/persistent/images/lobby.png` as the shared persistent first `lobby` entry.
 - The current suitcase starter inventory is seeded from `backend/seed/persistent/inventory/`.
 - The start screen opening theme is served by the backend from `backend/static/audio/Secrets_of_the_Grand_Pannonia_2026-03-21T133239.mp3` at `GET /audio/opening-theme`.
@@ -73,9 +77,18 @@
 - `GET /session/state` returns the current anonymous session row, including the active room name.
 - `GET /inventory` returns the current anonymous session suitcase inventory, including base64 image data for each item.
 - `POST /chat/stream` accepts a JSON body with `message` and returns an SSE-style `text/event-stream` response from the CrewAI coordinator.
+- Chat stream events now include `speaker_id` and `speaker_label` so the frontend can keep one shared transcript while rendering dedicated NPC bubbles such as `Receptionist`.
+- NPC chat stream events may also include portrait metadata so the frontend can render the receptionist headshot directly inside the bubble.
 - `GET /legal/privacy-notice` returns the plain-language prototype privacy notice shown on the start screen.
-- `POST /session/reset` deletes the caller's current anonymous room-state history, suitcase inventory, session row, and conversation pointer, rotates the session cookie, and returns the experience to a fresh anonymous state without clearing other visitors' runtime rows.
+- `POST /session/reset` deletes the caller's current anonymous room-state history, suitcase inventory, session row, world/NPC conversation threads, deterministic NPC rule state, rotates the session cookie, and returns the experience to a fresh anonymous state without clearing other visitors' runtime rows.
 - Browser `POST /rooms/states` requests must come from the configured `FRONTEND_ORIGIN`; cross-origin writes are rejected.
+
+## NPC Conversations
+- Conversational NPC implementations live in `backend/npcs/`.
+- The first NPC is the lobby receptionist, who can appear seamlessly in the existing chat window while still using dedicated speaker labels in the transcript.
+- The receptionist portrait is seeded from a cropped image derived from the lobby seed image and rendered in receptionist chat bubbles.
+- NPC availability can depend on deterministic game state. The receptionist currently only answers while the player is in the `lobby`.
+- Deterministic NPC events are tracked in the database and can influence later LLM-driven dialogue decisions.
 
 ## Canonical AI Prompt Assets
 - Canonical runtime design guidance now lives in `backend/agentProjectDesign.md`.

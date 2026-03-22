@@ -117,6 +117,34 @@ def _normalize_inventory_seed_entry(entry: dict[str, Any], manifest_path: Path) 
     }
 
 
+def _normalize_npc_seed_entry(entry: dict[str, Any], manifest_path: Path) -> dict[str, Any]:
+    """Validate and normalize one NPC registry seed definition."""
+    npc_id = entry.get("npc_id")
+    npc_label = entry.get("npc_label")
+    portrait_path_value = entry.get("portrait_path")
+
+    if not isinstance(npc_id, str) or not npc_id.strip():
+        raise ValueError("Each npc_entries item must include a non-empty npc_id.")
+    if not isinstance(npc_label, str) or not npc_label.strip():
+        raise ValueError(f"NPC seed '{npc_id}' must include a non-empty npc_label.")
+    if not isinstance(portrait_path_value, str) or not portrait_path_value.strip():
+        raise ValueError(f"NPC seed '{npc_id}' must include a non-empty portrait_path.")
+
+    portrait_path = _resolve_seed_asset_path(portrait_path_value, manifest_path)
+    image_media_type = entry.get("image_media_type")
+    if image_media_type is None:
+        image_media_type = _guess_image_media_type(portrait_path)
+    elif not isinstance(image_media_type, str) or not image_media_type.startswith("image/"):
+        raise ValueError(f"NPC seed '{npc_id}' must use a valid image_media_type.")
+
+    return {
+        "npc_id": npc_id.strip(),
+        "npc_label": npc_label.strip(),
+        "portrait_path": portrait_path,
+        "image_media_type": image_media_type.strip(),
+    }
+
+
 def load_seed_manifest(manifest_path: Path) -> dict[str, list[dict[str, Any]]]:
     """Load the committed persistent room and starter inventory seed definitions."""
     if not manifest_path.exists():
@@ -133,6 +161,9 @@ def load_seed_manifest(manifest_path: Path) -> dict[str, list[dict[str, Any]]]:
     raw_inventory_entries = manifest_payload.get("starter_inventory")
     if not isinstance(raw_inventory_entries, list) or not raw_inventory_entries:
         raise ValueError("Persistent room seed manifest must contain a non-empty starter_inventory array.")
+    raw_npc_entries = manifest_payload.get("npc_entries", [])
+    if not isinstance(raw_npc_entries, list):
+        raise ValueError("Persistent room seed manifest npc_entries value must be an array when provided.")
 
     return {
         "persistent_rooms": [
@@ -143,6 +174,11 @@ def load_seed_manifest(manifest_path: Path) -> dict[str, list[dict[str, Any]]]:
         "starter_inventory": [
             _normalize_inventory_seed_entry(entry, manifest_path)
             for entry in raw_inventory_entries
+            if isinstance(entry, dict)
+        ],
+        "npc_entries": [
+            _normalize_npc_seed_entry(entry, manifest_path)
+            for entry in raw_npc_entries
             if isinstance(entry, dict)
         ],
     }
@@ -263,6 +299,39 @@ def seed_persistent_room_states(database_path: Path, seed_entries: list[dict[str
                     seed_entry["room_description"],
                     seed_entry["state_timestamp"],
                     None,
+                ),
+            )
+
+
+def seed_npc_registry(database_path: Path, npc_entries: list[dict[str, Any]]) -> None:
+    """Insert or refresh the committed NPC registry entries."""
+    now = current_timestamp()
+    with get_db_connection(database_path) as connection:
+        for npc_entry in npc_entries:
+            connection.execute(
+                """
+                INSERT INTO npc_registry (
+                    npc_id,
+                    npc_label,
+                    portrait_image,
+                    image_media_type,
+                    created_at,
+                    updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(npc_id) DO UPDATE SET
+                    npc_label = excluded.npc_label,
+                    portrait_image = excluded.portrait_image,
+                    image_media_type = excluded.image_media_type,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    npc_entry["npc_id"],
+                    npc_entry["npc_label"],
+                    npc_entry["portrait_path"].read_bytes(),
+                    npc_entry["image_media_type"],
+                    now,
+                    now,
                 ),
             )
 
@@ -404,6 +473,45 @@ def get_inventory_item(database_path: Path, session_id: str, item_key: str) -> d
     }
 
 
+def get_npc_registry_entry(database_path: Path, npc_id: str) -> dict[str, Any] | None:
+    """Return one committed NPC registry entry as a JSON-safe payload."""
+    with get_db_connection(database_path) as connection:
+        row = connection.execute(
+            """
+            SELECT npc_id, npc_label, portrait_image, image_media_type, created_at, updated_at
+            FROM npc_registry
+            WHERE npc_id = ?
+            """,
+            (npc_id,),
+        ).fetchone()
+    if row is None:
+        return None
+
+    return {
+        "npc_id": row["npc_id"],
+        "npc_label": row["npc_label"],
+        "portrait_image_base64": base64.b64encode(row["portrait_image"]).decode("ascii"),
+        "image_media_type": row["image_media_type"],
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+    }
+
+
+def remove_inventory_item(database_path: Path, session_id: str, item_key: str) -> dict[str, Any]:
+    """Remove one inventory item from the session and return the removed row."""
+    inventory_item = get_inventory_item(database_path, session_id, item_key)
+    if inventory_item is None:
+        raise ValueError(f"Inventory item '{item_key}' is not available in this session.")
+
+    with get_db_connection(database_path) as connection:
+        connection.execute(
+            "DELETE FROM inventory_table WHERE session_id = ? AND item_key = ?",
+            (session_id, item_key),
+        )
+
+    return inventory_item
+
+
 def list_available_room_names(database_path: Path, session_id: str) -> list[str]:
     """Return the room names visible to this session."""
     with get_db_connection(database_path) as connection:
@@ -419,61 +527,258 @@ def list_available_room_names(database_path: Path, session_id: str) -> list[str]
     return [str(row["room_name"]) for row in rows]
 
 
-def upsert_crew_conversation(
+def upsert_conversation_thread(
     database_path: Path,
     session_id: str,
-    openai_conversation_id: str | None,
-    latest_response_id: str | None,
+    speaker_id: str,
+    speaker_label: str,
+    openai_conversation_id: str | None = None,
+    latest_response_id: str | None = None,
 ) -> dict[str, Any]:
-    """Store the current OpenAI conversation pointers for one session."""
+    """Ensure one session-scoped speaker thread exists and update its metadata."""
     now = current_timestamp()
     with get_db_connection(database_path) as connection:
+        existing_row = connection.execute(
+            """
+            SELECT id, openai_conversation_id, latest_response_id, created_at
+            FROM conversation_threads
+            WHERE session_id = ? AND speaker_id = ?
+            """,
+            (session_id, speaker_id),
+        ).fetchone()
+        existing_openai_conversation_id = (
+            existing_row["openai_conversation_id"] if existing_row is not None else None
+        )
+        existing_latest_response_id = existing_row["latest_response_id"] if existing_row is not None else None
+        created_at = existing_row["created_at"] if existing_row is not None else now
         connection.execute(
             """
-            INSERT INTO crew_convos (
+            INSERT INTO conversation_threads (
                 session_id,
+                speaker_id,
+                speaker_label,
                 openai_conversation_id,
                 latest_response_id,
                 created_at,
                 updated_at
             )
-            VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT(session_id) DO UPDATE SET
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(session_id, speaker_id) DO UPDATE SET
+                speaker_label = excluded.speaker_label,
                 openai_conversation_id = excluded.openai_conversation_id,
                 latest_response_id = excluded.latest_response_id,
                 updated_at = excluded.updated_at
             """,
-            (session_id, openai_conversation_id, latest_response_id, now, now),
+            (
+                session_id,
+                speaker_id,
+                speaker_label,
+                openai_conversation_id if openai_conversation_id is not None else existing_openai_conversation_id,
+                latest_response_id if latest_response_id is not None else existing_latest_response_id,
+                created_at,
+                now,
+            ),
         )
         row = connection.execute(
             """
-            SELECT session_id, openai_conversation_id, latest_response_id, created_at, updated_at
-            FROM crew_convos
-            WHERE session_id = ?
+            SELECT id, session_id, speaker_id, speaker_label, openai_conversation_id, latest_response_id, created_at, updated_at
+            FROM conversation_threads
+            WHERE session_id = ? AND speaker_id = ?
             """,
-            (session_id,),
+            (session_id, speaker_id),
         ).fetchone()
 
     return dict(row) if row is not None else {}
 
 
-def get_crew_conversation(database_path: Path, session_id: str) -> dict[str, Any] | None:
-    """Fetch the stored OpenAI conversation pointers for one session."""
+def get_conversation_thread(database_path: Path, session_id: str, speaker_id: str) -> dict[str, Any] | None:
+    """Fetch one stored session-scoped conversation thread."""
     with get_db_connection(database_path) as connection:
         row = connection.execute(
             """
-            SELECT session_id, openai_conversation_id, latest_response_id, created_at, updated_at
-            FROM crew_convos
-            WHERE session_id = ?
+            SELECT id, session_id, speaker_id, speaker_label, openai_conversation_id, latest_response_id, created_at, updated_at
+            FROM conversation_threads
+            WHERE session_id = ? AND speaker_id = ?
             """,
-            (session_id,),
+            (session_id, speaker_id),
         ).fetchone()
     return dict(row) if row is not None else None
+
+
+def append_conversation_message(
+    database_path: Path,
+    session_id: str,
+    speaker_id: str,
+    speaker_label: str,
+    role: str,
+    content: str,
+) -> dict[str, Any]:
+    """Append one message to a session-scoped speaker thread."""
+    if role not in {"user", "assistant"}:
+        raise ValueError("role must be 'user' or 'assistant'")
+
+    normalized_content = content.strip()
+    if not normalized_content:
+        raise ValueError("content must be a non-empty string")
+
+    thread = upsert_conversation_thread(
+        database_path=database_path,
+        session_id=session_id,
+        speaker_id=speaker_id,
+        speaker_label=speaker_label,
+    )
+    now = current_timestamp()
+    with get_db_connection(database_path) as connection:
+        cursor = connection.execute(
+            """
+            INSERT INTO conversation_messages (
+                thread_id,
+                role,
+                speaker_label,
+                content,
+                created_at
+            )
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                thread["id"],
+                role,
+                "Guest" if role == "user" else speaker_label,
+                normalized_content,
+                now,
+            ),
+        )
+        connection.execute(
+            """
+            UPDATE conversation_threads
+            SET updated_at = ?
+            WHERE id = ?
+            """,
+            (now, thread["id"]),
+        )
+        row = connection.execute(
+            """
+            SELECT id, thread_id, role, speaker_label, content, created_at
+            FROM conversation_messages
+            WHERE id = ?
+            """,
+            (cursor.lastrowid,),
+        ).fetchone()
+
+    return dict(row) if row is not None else {}
+
+
+def list_conversation_messages(
+    database_path: Path,
+    session_id: str,
+    speaker_id: str,
+    limit: int | None = None,
+) -> list[dict[str, Any]]:
+    """Return message history for one session-scoped speaker thread."""
+    query = """
+        SELECT message.id, message.thread_id, message.role, message.speaker_label, message.content, message.created_at
+        FROM conversation_messages AS message
+        INNER JOIN conversation_threads AS thread ON thread.id = message.thread_id
+        WHERE thread.session_id = ? AND thread.speaker_id = ?
+        ORDER BY message.id ASC
+    """
+    query_params: tuple[Any, ...] = (session_id, speaker_id)
+    if isinstance(limit, int) and limit > 0:
+        query = """
+            SELECT *
+            FROM (
+                SELECT message.id, message.thread_id, message.role, message.speaker_label, message.content, message.created_at
+                FROM conversation_messages AS message
+                INNER JOIN conversation_threads AS thread ON thread.id = message.thread_id
+                WHERE thread.session_id = ? AND thread.speaker_id = ?
+                ORDER BY message.id DESC
+                LIMIT ?
+            )
+            ORDER BY id ASC
+        """
+        query_params = (session_id, speaker_id, limit)
+
+    with get_db_connection(database_path) as connection:
+        rows = connection.execute(query, query_params).fetchall()
+    return [dict(row) for row in rows]
+
+
+def get_deterministic_rule_state(
+    database_path: Path,
+    session_id: str,
+    npc_id: str,
+    rule_key: str,
+) -> str | None:
+    """Return one persisted deterministic rule value for an NPC session."""
+    with get_db_connection(database_path) as connection:
+        row = connection.execute(
+            """
+            SELECT rule_value
+            FROM deterministic_rule_state
+            WHERE session_id = ? AND npc_id = ? AND rule_key = ?
+            """,
+            (session_id, npc_id, rule_key),
+        ).fetchone()
+    return str(row["rule_value"]) if row is not None else None
+
+
+def set_deterministic_rule_state(
+    database_path: Path,
+    session_id: str,
+    npc_id: str,
+    rule_key: str,
+    rule_value: str,
+) -> dict[str, Any]:
+    """Persist one deterministic rule value for an NPC session."""
+    now = current_timestamp()
+    with get_db_connection(database_path) as connection:
+        connection.execute(
+            """
+            INSERT INTO deterministic_rule_state (
+                session_id,
+                npc_id,
+                rule_key,
+                rule_value,
+                created_at,
+                updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(session_id, npc_id, rule_key) DO UPDATE SET
+                rule_value = excluded.rule_value,
+                updated_at = excluded.updated_at
+            """,
+            (session_id, npc_id, rule_key, rule_value, now, now),
+        )
+        row = connection.execute(
+            """
+            SELECT id, session_id, npc_id, rule_key, rule_value, created_at, updated_at
+            FROM deterministic_rule_state
+            WHERE session_id = ? AND npc_id = ? AND rule_key = ?
+            """,
+            (session_id, npc_id, rule_key),
+        ).fetchone()
+    return dict(row) if row is not None else {}
 
 
 def reset_session_progress(database_path: Path, session_id: str) -> dict[str, int]:
     """Delete visitor-scoped state across all runtime tables."""
     with get_db_connection(database_path) as connection:
+        conversation_message_count_row = connection.execute(
+            """
+            SELECT COUNT(*) AS conversation_message_count
+            FROM conversation_messages AS message
+            INNER JOIN conversation_threads AS thread ON thread.id = message.thread_id
+            WHERE thread.session_id = ?
+            """,
+            (session_id,),
+        ).fetchone()
+        legacy_crew_convo_table_exists = connection.execute(
+            """
+            SELECT 1
+            FROM sqlite_master
+            WHERE type = 'table' AND name = 'crew_convos'
+            """
+        ).fetchone() is not None
         room_delete_cursor = connection.execute(
             """
             DELETE FROM room_table
@@ -485,10 +790,20 @@ def reset_session_progress(database_path: Path, session_id: str) -> dict[str, in
             "DELETE FROM inventory_table WHERE session_id = ?",
             (session_id,),
         )
-        crew_convo_delete_cursor = connection.execute(
-            "DELETE FROM crew_convos WHERE session_id = ?",
+        conversation_thread_delete_cursor = connection.execute(
+            "DELETE FROM conversation_threads WHERE session_id = ?",
             (session_id,),
         )
+        deterministic_rule_delete_cursor = connection.execute(
+            "DELETE FROM deterministic_rule_state WHERE session_id = ?",
+            (session_id,),
+        )
+        legacy_crew_convo_delete_cursor = None
+        if legacy_crew_convo_table_exists:
+            legacy_crew_convo_delete_cursor = connection.execute(
+                "DELETE FROM crew_convos WHERE session_id = ?",
+                (session_id,),
+            )
         session_delete_cursor = connection.execute(
             "DELETE FROM session_state WHERE session_id = ?",
             (session_id,),
@@ -497,7 +812,22 @@ def reset_session_progress(database_path: Path, session_id: str) -> dict[str, in
     return {
         "deleted_room_states": room_delete_cursor.rowcount if room_delete_cursor.rowcount >= 0 else 0,
         "deleted_inventory_items": inventory_delete_cursor.rowcount if inventory_delete_cursor.rowcount >= 0 else 0,
-        "deleted_crew_convos": crew_convo_delete_cursor.rowcount if crew_convo_delete_cursor.rowcount >= 0 else 0,
+        "deleted_conversation_threads": (
+            conversation_thread_delete_cursor.rowcount if conversation_thread_delete_cursor.rowcount >= 0 else 0
+        ),
+        "deleted_conversation_messages": (
+            int(conversation_message_count_row["conversation_message_count"])
+            if conversation_message_count_row is not None
+            else 0
+        ),
+        "deleted_deterministic_rules": (
+            deterministic_rule_delete_cursor.rowcount if deterministic_rule_delete_cursor.rowcount >= 0 else 0
+        ),
+        "deleted_legacy_crew_convos": (
+            legacy_crew_convo_delete_cursor.rowcount
+            if legacy_crew_convo_delete_cursor is not None and legacy_crew_convo_delete_cursor.rowcount >= 0
+            else 0
+        ),
         "deleted_session_rows": session_delete_cursor.rowcount if session_delete_cursor.rowcount >= 0 else 0,
     }
 

@@ -10,6 +10,7 @@ declare const __APP_BACKEND_PORT__: string;
 
 const HAS_STARTED_STORAGE_KEY = "grand-pannonia-has-started";
 const CONSENT_ACCEPTED_STORAGE_KEY = "grand-pannonia-prototype-consent";
+const SESSION_HEADER_NAME = "X-Grand-Pannonia-Session-Id";
 const INITIAL_ASSISTANT_MESSAGE =
   "Welcome to the Grand Pannonia Hotel. Tell me what you would like to do, and I will keep it brief.";
 
@@ -137,10 +138,29 @@ function App() {
   const [chatError, setChatError] = useState<string | null>(null);
   const [isStreamingChat, setIsStreamingChat] = useState(false);
   const activeChatRequestRef = useRef<AbortController | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
   const backendBaseUrl = getBackendBaseUrl();
   const openingThemeUrl = `${backendBaseUrl}/audio/opening-theme`;
   const introAudioUrl = `${backendBaseUrl}/audio/intro`;
   const openingThemeVolume = isIntroModalOpen && !isAudioMuted ? 0.3 : 1;
+
+  const syncSessionId = useCallback((response: Response, fallbackSessionId?: string | null): void => {
+    const headerSessionId = response.headers.get(SESSION_HEADER_NAME)?.trim();
+    const nextSessionId = headerSessionId || fallbackSessionId?.trim();
+    if (nextSessionId) {
+      sessionIdRef.current = nextSessionId;
+    }
+  }, []);
+
+  const buildSessionHeaders = useCallback(
+    (headers: Record<string, string> = {}): Record<string, string> => {
+      if (sessionIdRef.current) {
+        return { ...headers, [SESSION_HEADER_NAME]: sessionIdRef.current };
+      }
+      return headers;
+    },
+    [],
+  );
 
   const ensureWelcomeMessage = useCallback(() => {
     setChatMessages((currentMessages) =>
@@ -151,25 +171,29 @@ function App() {
   const loadSessionState = useCallback(async (): Promise<string> => {
     const response = await fetch(`${backendBaseUrl}/session/state`, {
       credentials: "include",
+      headers: buildSessionHeaders(),
     });
     if (!response.ok) {
       throw new Error(`Failed to load session state: ${response.status}`);
     }
 
     const payload = (await response.json()) as SessionStateResponse;
+    syncSessionId(response, payload.session_id ?? null);
     const nextRoomName = payload.current_room_name || "lobby";
     setCurrentRoomName(nextRoomName);
     return nextRoomName;
-  }, [backendBaseUrl, hasConsented]);
+  }, [backendBaseUrl, buildSessionHeaders, hasConsented, syncSessionId]);
 
   const loadInventory = useCallback(async (): Promise<void> => {
     const response = await fetch(`${backendBaseUrl}/inventory`, {
       credentials: "include",
+      headers: buildSessionHeaders(),
     });
     if (!response.ok) {
       throw new Error(`Failed to load inventory: ${response.status}`);
     }
 
+    syncSessionId(response);
     const payload = (await response.json()) as InventoryItemResponse[];
     setInventoryItems(
       payload.map((item) => ({
@@ -194,6 +218,7 @@ function App() {
           throw new Error(`Failed to load room image: ${response.status}`);
         }
 
+        syncSessionId(response);
         const roomState = (await response.json()) as RoomStateResponse;
         setRoomImageUrl(`data:${roomState.image_media_type};base64,${roomState.room_image_base64}`);
       } finally {
@@ -213,6 +238,7 @@ function App() {
       const response = await fetch(`${backendBaseUrl}/session/reset`, {
         method: "POST",
         credentials: "include",
+          headers: buildSessionHeaders(),
       });
 
       if (!response.ok) {
@@ -228,6 +254,7 @@ function App() {
         throw new Error(errorMessage);
       }
 
+      syncSessionId(response);
       setHasStarted(false);
       setIsInventoryOpen(false);
       setIsChatOpen(false);
@@ -332,10 +359,10 @@ function App() {
         const response = await fetch(`${backendBaseUrl}/chat/stream`, {
           method: "POST",
           credentials: "include",
-          headers: {
+          headers: buildSessionHeaders({
             Accept: "text/event-stream",
             "Content-Type": "application/json",
-          },
+          }),
           body: JSON.stringify({ message: trimmedMessage }),
           signal: controller.signal,
         });
@@ -353,6 +380,7 @@ function App() {
           throw new Error(errorMessage);
         }
 
+        syncSessionId(response);
         if (!response.body) {
           throw new Error("The chat stream did not return a readable response body.");
         }
@@ -432,7 +460,7 @@ function App() {
         }
       }
     },
-    [backendBaseUrl, isStreamingChat, loadCurrentRoomImage, loadInventory, loadSessionState],
+    [backendBaseUrl, buildSessionHeaders, isStreamingChat, loadCurrentRoomImage, loadInventory, loadSessionState, syncSessionId],
   );
 
   return (

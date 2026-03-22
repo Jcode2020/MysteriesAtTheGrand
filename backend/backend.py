@@ -33,6 +33,7 @@ DEFAULT_OPENING_AUDIO_PATH = BACKEND_DIR / "static" / "audio" / "Secrets_of_the_
 DEFAULT_INTRO_AUDIO_PATH = BACKEND_DIR / "static" / "audio" / "intro.mp3"
 DEFAULT_PRIVACY_NOTICE_PATH = BACKEND_DIR / "legal" / "privacy-notice.md"
 SESSION_COOKIE_NAME = "grand_pannonia_session_id"
+SESSION_HEADER_NAME = "X-Grand-Pannonia-Session-Id"
 LOG_FORMAT = "[%(asctime)s] %(levelname)s - %(message)s"
 STREAM_HANDLER_NAME = "grand_pannonia_backend_stream"
 FILE_HANDLER_NAME = "grand_pannonia_backend_file"
@@ -297,11 +298,47 @@ def _generate_session_id() -> str:
     return uuid.uuid4().hex
 
 
+def _resolve_header_session_id() -> str | None:
+    """Return a validated session id provided by the frontend session header."""
+    configured_session_id = request.headers.get(SESSION_HEADER_NAME, "").strip()
+    if not configured_session_id:
+        return None
+    if len(configured_session_id) != 32:
+        return None
+    try:
+        uuid.UUID(hex=configured_session_id)
+    except ValueError:
+        return None
+    return configured_session_id
+
+
 def _ensure_session_id() -> str:
     """Return the active session ID, creating one when the visitor is new."""
     generated_session_id = getattr(g, "session_id", None)
     if isinstance(generated_session_id, str) and generated_session_id:
         return generated_session_id
+
+    header_session_id = _resolve_header_session_id()
+    if header_session_id:
+        g.session_id = header_session_id
+        g.should_set_session_cookie = False
+        _emit_agent_debug(
+            {
+                "sessionId": "9b5e82",
+                "runId": f"header-{header_session_id}",
+                "hypothesisId": "H11",
+                "location": "backend.py:_ensure_session_id",
+                "message": "reused existing session header",
+                "data": {
+                    "request_path": request.path,
+                    "origin": request.headers.get("Origin"),
+                    "has_cookie_header": request.headers.get("Cookie") is not None,
+                    "has_session_header": True,
+                    "session_id": header_session_id,
+                },
+            }
+        )
+        return header_session_id
 
     existing_session_id = request.cookies.get(SESSION_COOKIE_NAME)
     if existing_session_id:
@@ -318,6 +355,7 @@ def _ensure_session_id() -> str:
                     "request_path": request.path,
                     "origin": request.headers.get("Origin"),
                     "has_cookie_header": request.headers.get("Cookie") is not None,
+                    "has_session_header": _resolve_header_session_id() is not None,
                     "session_id": existing_session_id,
                 },
             }
@@ -338,6 +376,7 @@ def _ensure_session_id() -> str:
                 "request_path": request.path,
                 "origin": request.headers.get("Origin"),
                 "has_cookie_header": request.headers.get("Cookie") is not None,
+                "has_session_header": False,
                 "session_id": new_session_id,
             },
         }
@@ -347,6 +386,7 @@ def _ensure_session_id() -> str:
 
 def _attach_session_cookie(response: Response, session_id: str, app: Flask) -> Response:
     """Persist the anonymous session cookie for future room-state requests."""
+    response.headers[SESSION_HEADER_NAME] = session_id
     if getattr(g, "should_set_session_cookie", False):
         _set_session_cookie(response, session_id, app)
     return response
@@ -478,9 +518,10 @@ def create_app(
         if allowed_origin:
             response.headers["Access-Control-Allow-Origin"] = allowed_origin
             response.headers["Vary"] = "Origin"
-            response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+            response.headers["Access-Control-Allow-Headers"] = f"Content-Type, {SESSION_HEADER_NAME}"
             response.headers["Access-Control-Allow-Methods"] = "GET,POST,OPTIONS"
             response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Expose-Headers"] = SESSION_HEADER_NAME
 
         response.headers.setdefault("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'")
         response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")

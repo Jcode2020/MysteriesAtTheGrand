@@ -1,8 +1,6 @@
 import logging
 import os
-import sys
 import uuid
-import hashlib
 from datetime import datetime
 from pathlib import Path
 from time import perf_counter
@@ -41,19 +39,6 @@ FILE_HANDLER_NAME = "grand_pannonia_backend_file"
 _ACTIVE_LOG_FILE_PATH: Path | None = None
 
 logger = logging.getLogger(__name__)
-
-
-def _emit_agent_debug(payload: dict[str, Any]) -> None:
-    """Write one structured debug line to the Railway-visible backend logs."""
-    import json
-
-    serialized_payload = json.dumps(payload, separators=(",", ":"))
-    logger.info("AGENT_DEBUG %s", serialized_payload)
-    try:
-        sys.stderr.write(f"AGENT_DEBUG {serialized_payload}\n")
-        sys.stderr.flush()
-    except OSError:
-        pass
 
 
 def _get_logger_handler(handler_name: str) -> logging.Handler | None:
@@ -322,65 +307,17 @@ def _ensure_session_id() -> str:
     if header_session_id:
         g.session_id = header_session_id
         g.should_set_session_cookie = False
-        _emit_agent_debug(
-            {
-                "sessionId": "9b5e82",
-                "runId": f"header-{header_session_id}",
-                "hypothesisId": "H11",
-                "location": "backend.py:_ensure_session_id",
-                "message": "reused existing session header",
-                "data": {
-                    "request_path": request.path,
-                    "origin": request.headers.get("Origin"),
-                    "has_cookie_header": request.headers.get("Cookie") is not None,
-                    "has_session_header": True,
-                    "session_id": header_session_id,
-                },
-            }
-        )
         return header_session_id
 
     existing_session_id = request.cookies.get(SESSION_COOKIE_NAME)
     if existing_session_id:
         g.session_id = existing_session_id
         g.should_set_session_cookie = False
-        _emit_agent_debug(
-            {
-                "sessionId": "9b5e82",
-                "runId": f"cookie-{existing_session_id}",
-                "hypothesisId": "H10",
-                "location": "backend.py:_ensure_session_id",
-                "message": "reused existing session cookie",
-                "data": {
-                    "request_path": request.path,
-                    "origin": request.headers.get("Origin"),
-                    "has_cookie_header": request.headers.get("Cookie") is not None,
-                    "has_session_header": _resolve_header_session_id() is not None,
-                    "session_id": existing_session_id,
-                },
-            }
-        )
         return existing_session_id
 
     new_session_id = _generate_session_id()
     g.should_set_session_cookie = True
     g.session_id = new_session_id
-    _emit_agent_debug(
-        {
-            "sessionId": "9b5e82",
-            "runId": f"cookie-{new_session_id}",
-            "hypothesisId": "H10",
-            "location": "backend.py:_ensure_session_id",
-            "message": "generated new session cookie",
-            "data": {
-                "request_path": request.path,
-                "origin": request.headers.get("Origin"),
-                "has_cookie_header": request.headers.get("Cookie") is not None,
-                "has_session_header": False,
-                "session_id": new_session_id,
-            },
-        }
-    )
     return new_session_id
 
 
@@ -401,23 +338,6 @@ def _set_session_cookie(response: Response, session_id: str, app: Flask) -> Resp
         samesite=app.config["SESSION_COOKIE_SAMESITE"],
         secure=app.config["SESSION_COOKIE_SECURE"],
         max_age=60 * 60 * 24 * 30,
-    )
-    _emit_agent_debug(
-        {
-            "sessionId": "9b5e82",
-            "runId": f"cookie-{session_id}",
-            "hypothesisId": "H8",
-            "location": "backend.py:_set_session_cookie",
-            "message": "set session cookie on response",
-            "data": {
-                "request_path": request.path,
-                "origin": request.headers.get("Origin"),
-                "session_id": session_id,
-                "cookie_secure": app.config["SESSION_COOKIE_SECURE"],
-                "cookie_samesite": app.config["SESSION_COOKIE_SAMESITE"],
-                "has_set_cookie_header": response.headers.get("Set-Cookie") is not None,
-            },
-        }
     )
     return response
 
@@ -484,21 +404,6 @@ def create_app(
     if app.config["SESSION_COOKIE_SAMESITE"] == "None" and not app.config["SESSION_COOKIE_SECURE"]:
         raise ValueError("SESSION_COOKIE_SAMESITE=None requires SESSION_COOKIE_SECURE=true")
 
-    _emit_agent_debug(
-        {
-            "sessionId": "9b5e82",
-            "runId": "startup-cookie-config",
-            "hypothesisId": "H8",
-            "location": "backend.py:create_app",
-            "message": "resolved production cookie configuration",
-            "data": {
-                "frontend_origin": app.config["FRONTEND_ORIGIN"],
-                "session_cookie_secure": app.config["SESSION_COOKIE_SECURE"],
-                "session_cookie_samesite": app.config["SESSION_COOKIE_SAMESITE"],
-            },
-        }
-    )
-
     initialize_database(resolved_database_path, resolved_schema_path)
     seed_persistent_room_states(resolved_database_path, app.config["PERSISTENT_ROOM_SEED_ENTRIES"])
     logger.info("Initialized room state database at %s", resolved_database_path)
@@ -538,29 +443,6 @@ def create_app(
             or request.path.startswith("/chat/")
         ):
             response.headers.setdefault("Cache-Control", "no-store")
-
-        if (
-            request.path.startswith("/rooms/")
-            or request.path.startswith("/session/")
-            or request.path.startswith("/inventory")
-            or request.path.startswith("/chat/")
-        ):
-            _emit_agent_debug(
-                {
-                    "sessionId": "9b5e82",
-                    "runId": f"after-{getattr(g, 'session_id', 'no-session')}-{request.path}",
-                    "hypothesisId": "H9",
-                    "location": "backend.py:add_cors_headers",
-                    "message": "prepared response headers for session-scoped endpoint",
-                    "data": {
-                        "request_path": request.path,
-                        "session_id": getattr(g, "session_id", None),
-                        "allowed_origin": response.headers.get("Access-Control-Allow-Origin"),
-                        "allow_credentials": response.headers.get("Access-Control-Allow-Credentials"),
-                        "has_set_cookie_header": response.headers.get("Set-Cookie") is not None,
-                    },
-                }
-            )
         return response
 
     @app.route("/session/state", methods=["OPTIONS"])
@@ -742,30 +624,6 @@ def create_app(
             response = jsonify({"error": f"No room states found for room '{room_name}' in this session."})
             return _attach_session_cookie(response, session_id, app), 404
 
-        debug_payload = __import__("json").dumps(
-            {
-                "sessionId": "9b5e82",
-                "runId": f"latest-{session_id}-{room_name}",
-                "hypothesisId": "H6",
-                "location": "backend.py:get_latest_room_state_endpoint",
-                "message": "served latest room state",
-                "data": {
-                    "room_name": room_state["room_name"],
-                    "state_id": room_state["id"],
-                    "previous_state_id": room_state["previous_state_id"],
-                    "image_media_type": room_state["image_media_type"],
-                    "room_image_base64_length": len(room_state["room_image_base64"]),
-                    "room_image_sha256": hashlib.sha256(room_state["room_image_base64"].encode("ascii")).hexdigest()[:16],
-                },
-            },
-            separators=(",", ":"),
-        )
-        logger.info("AGENT_DEBUG %s", debug_payload)
-        try:
-            sys.stderr.write(f"AGENT_DEBUG {debug_payload}\n")
-            sys.stderr.flush()
-        except OSError:
-            pass
         response = jsonify(room_state)
         return _attach_session_cookie(response, session_id, app), 200
 

@@ -1,11 +1,5 @@
 import base64
-import hashlib
-import json
-import logging
-import os
-import sys
 import tempfile
-import time
 from pathlib import Path
 from typing import Any
 
@@ -17,53 +11,6 @@ from db_handlers import (
     list_available_room_names,
     remove_inventory_item_and_create_room_state,
 )
-
-logger = logging.getLogger(__name__)
-DEBUG_LOG_PATH = Path(
-    os.getenv("AGENT_DEBUG_LOG_PATH", "/Users/johannesantoni/VS Code/MysteriesAtTheGrand/.cursor/debug-9b5e82.log")
-)
-DEBUG_SESSION_ID = "9b5e82"
-
-
-def _emit_debug_line(serialized_payload: str) -> None:
-    line = f"AGENT_DEBUG {serialized_payload}"
-    logging.getLogger("backend").info(line)
-    try:
-        sys.stderr.write(line + "\n")
-        sys.stderr.flush()
-    except OSError:
-        pass
-
-
-def _debug_log(*, run_id: str, hypothesis_id: str, location: str, message: str, data: dict[str, Any]) -> None:
-    payload = {
-        "sessionId": DEBUG_SESSION_ID,
-        "runId": run_id,
-        "hypothesisId": hypothesis_id,
-        "location": location,
-        "message": message,
-        "data": data,
-        "timestamp": int(time.time() * 1000),
-    }
-    serialized_payload = json.dumps(payload, separators=(",", ":"))
-    _emit_debug_line(serialized_payload)
-    try:
-        DEBUG_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with DEBUG_LOG_PATH.open("a", encoding="utf-8") as debug_file:
-            debug_file.write(serialized_payload + "\n")
-    except OSError as error:
-        logger.info(
-            "DEBUG_NDJSON_FALLBACK %s",
-            json.dumps(
-                {
-                    **payload,
-                    "fallbackErrorType": type(error).__name__,
-                    "fallbackErrorMessage": str(error),
-                    "fallbackPath": str(DEBUG_LOG_PATH),
-                },
-                separators=(",", ":"),
-            ),
-        )
 
 
 class CrewRoomHandler:
@@ -77,7 +24,6 @@ class CrewRoomHandler:
         session_id: str,
         user_message: str,
         inventory_item: dict[str, Any] | None = None,
-        run_id: str = "no-run-id",
     ) -> dict[str, Any]:
         """Plan and apply a room action, optionally consuming an inventory item."""
         session_state = get_session_state(self.database_path, session_id)
@@ -97,24 +43,6 @@ class CrewRoomHandler:
             available_room_names=list_available_room_names(self.database_path, session_id),
         )
 
-        # region agent log
-        _debug_log(
-            run_id=run_id,
-            hypothesis_id="H2",
-            location="crew_room_handler.py:apply_action:plan",
-            message="room action plan created",
-            data={
-                "current_room_name": current_room_name,
-                "inventory_item_key": inventory_item["item_key"] if inventory_item else None,
-                "action_possible": action_plan["action_possible"],
-                "consume_item": action_plan["consume_item"],
-                "needs_image_edit": action_plan["needs_image_edit"],
-                "target_room_name": action_plan["target_room_name"],
-                "has_image_edit_prompt": bool(action_plan["image_edit_prompt"]),
-            },
-        )
-        # endregion
-
         if not action_plan["action_possible"]:
             return {
                 "status": "rejected",
@@ -130,7 +58,6 @@ class CrewRoomHandler:
                 existing_image_bytes=latest_room_state["room_image"],
                 existing_media_type=latest_room_state["image_media_type"],
                 edit_prompt=action_plan["image_edit_prompt"],
-                run_id=run_id,
             )
             new_image_media_type = "image/png"
 
@@ -149,22 +76,6 @@ class CrewRoomHandler:
             },
             current_room_name=action_plan["target_room_name"] or current_room_name,
         )
-
-        # region agent log
-        _debug_log(
-            run_id=run_id,
-            hypothesis_id="H6",
-            location="crew_room_handler.py:apply_action:created_state",
-            message="created room state after action",
-            data={
-                "created_state_id": created_room_state["id"],
-                "previous_state_id": created_room_state["previous_state_id"],
-                "room_name": created_room_state["room_name"],
-                "image_media_type": created_room_state["image_media_type"],
-                "room_image_base64_length": len(created_room_state["room_image_base64"]),
-            },
-        )
-        # endregion
 
         return {
             "status": "applied",
@@ -269,7 +180,6 @@ class CrewRoomHandler:
         existing_image_bytes: bytes,
         existing_media_type: str,
         edit_prompt: str | None,
-        run_id: str,
     ) -> bytes:
         """Edit an existing room image while preserving the original composition and style."""
         if not edit_prompt:
@@ -287,68 +197,12 @@ class CrewRoomHandler:
             source_image.flush()
 
             with open(source_image.name, "rb") as image_file:
-                edit_started_at = time.perf_counter()
-                image_model = get_openai_image_model()
-                # region agent log
-                _debug_log(
-                    run_id=run_id,
-                    hypothesis_id="H1",
-                    location="crew_room_handler.py:_edit_room_image:before_openai",
-                    message="starting room image edit request",
-                    data={
-                        "image_model": image_model,
-                        "existing_media_type": existing_media_type,
-                        "source_image_bytes": len(existing_image_bytes),
-                        "source_image_sha256": hashlib.sha256(existing_image_bytes).hexdigest()[:16],
-                        "prompt_length": len(edit_prompt),
-                    },
+                image_response = client.images.edit(
+                    model=get_openai_image_model(),
+                    image=image_file,
+                    prompt=edit_prompt,
+                    input_fidelity="high",
                 )
-                # endregion
-                try:
-                    image_response = client.images.edit(
-                        model=image_model,
-                        image=image_file,
-                        prompt=edit_prompt,
-                        input_fidelity="high",
-                    )
-                except Exception as error:
-                    # region agent log
-                    _debug_log(
-                        run_id=run_id,
-                        hypothesis_id="H1",
-                        location="crew_room_handler.py:_edit_room_image:openai_error",
-                        message="room image edit request failed",
-                        data={
-                            "elapsed_ms": round((time.perf_counter() - edit_started_at) * 1000, 2),
-                            "error_type": type(error).__name__,
-                            "error_message": str(error),
-                        },
-                    )
-                    # endregion
-                    raise
-
-        # region agent log
-        _debug_log(
-            run_id=run_id,
-            hypothesis_id="H5",
-            location="crew_room_handler.py:_edit_room_image:after_openai",
-            message="room image edit request completed",
-            data={
-                "elapsed_ms": round((time.perf_counter() - edit_started_at) * 1000, 2),
-                "has_image_data": bool(image_response.data and image_response.data[0].b64_json),
-                "edited_image_bytes": len(base64.b64decode(image_response.data[0].b64_json))
-                if image_response.data and image_response.data[0].b64_json
-                else 0,
-                "edited_image_sha256": hashlib.sha256(base64.b64decode(image_response.data[0].b64_json)).hexdigest()[:16]
-                if image_response.data and image_response.data[0].b64_json
-                else None,
-                "image_changed": hashlib.sha256(existing_image_bytes).hexdigest()[:16]
-                != hashlib.sha256(base64.b64decode(image_response.data[0].b64_json)).hexdigest()[:16]
-                if image_response.data and image_response.data[0].b64_json
-                else None,
-            },
-        )
-        # endregion
 
         if not image_response.data or not image_response.data[0].b64_json:
             raise RuntimeError("The image edit request did not return edited image data.")

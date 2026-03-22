@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Opus 4.6 The Guest's Dossier Mood Board</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap');
+
+      :root {
+        --bg: #e8e0d4;
+        --page: #f4efe6;
+        --page-foxed: #ece3d3;
+        --ink: #2c261e;
+        --muted: #6d6356;
+        --typewriter: #3a3630;
+        --red-ink: #8b3a32;
+        --blue-carbon: #4a5d73;
+        --manila: #d4c5a8;
+        --stamp: rgba(139, 58, 50, 0.14);
+        --rule: rgba(44, 38, 30, 0.16);
+        --pin-shadow: rgba(44, 38, 30, 0.25);
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+      }
+
+      body {
+        font-family: "IBM Plex Mono", "Courier New", monospace;
+        color: var(--ink);
+        background:
+          repeating-linear-gradient(
+            0deg,
+            transparent 0px,
+            transparent 27px,
+            rgba(44, 38, 30, 0.04) 27px,
+            rgba(44, 38, 30, 0.04) 28px
+          ),
+          var(--bg);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .desk {
+        max-width: 880px;
+        margin: 0 auto;
+        padding: 48px 24px 80px;
+      }
+
+      /* Manila folder tab */
+      .folder-tab {
+        display: inline-block;
+        background: var(--manila);
+        padding: 8px 24px 6px;
+        font-size: 0.68rem;
+        font-weight: 500;
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        color: var(--muted);
+        border-radius: 6px 6px 0 0;
+        border: 1px solid var(--rule);
+        border-bottom: none;
+        position: relative;
+        top: 1px;
+      }
+
+      /* Document pages */
+      .document {
+        background: var(--page);
+        border: 1px solid var(--rule);
+        padding: 40px 36px;
+        position: relative;
+        box-shadow:
+          2px 2px 0 rgba(44, 38, 30, 0.04),
+          4px 4px 0 rgba(44, 38, 30, 0.03),
+          6px 6px 0 rgba(44, 38, 30, 0.02);
+      }
+
+      .document + .document {
+        margin-top: -1px;
+      }
+
+      .document::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 32px;
+        width: 1px;
+        height: 100%;
+        background: rgba(139, 58, 50, 0.12);
+      }
+
+      /* Stationery header */
+      .hotel-header {
+        text-align: center;
+        padding-bottom: 28px;
+        margin-bottom: 28px;
+        border-bottom: 1px solid var(--rule);
+        position: relative;
+      }
+
+      .monogram {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 56px;
+        height: 56px;
+        border: 2px solid var(--ink);
+        border-radius: 50%;
+        font-family: "Playfair Display", Georgia, serif;
+        font-size: 1.4rem;
+        font-weight: 600;
+        margin-bottom: 14px;
+        letter-spacing: 0.04em;
+      }
+
+      .hotel-name {
+        font-family: "Playfair Display", Georgia, serif;
+        font-size: 1.1rem;
+        font-weight: 600;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        margin-bottom: 4px;
+      }
+
+      .hotel-sub {
+        font-size: 0.68rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      /* Title page */
+      .dossier-title {
+        text-align: center;
+        padding: 20px 0 0;
+      }
+
+      .dossier-title h1 {
+        font-family: "Playfair Display", Georgia, serif;
+        font-size: clamp(2rem, 4vw, 3.2rem);
+        font-weight: 400;
+        font-style: italic;
+        line-height: 1.2;
+        margin-bottom: 16px;
+      }
+
+      .dossier-meta {
+        font-size: 0.78rem;
+        color: var(--muted);
+        letter-spacing: 0.04em;
+      }
+
+      .dossier-meta .classified {
+        display: inline-block;
+        margin-top: 12px;
+        padding: 4px 14px;
+        border: 2px solid var(--red-ink);
+        color: var(--red-ink);
+        font-weight: 500;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        font-size: 0.72rem;
+        transform: rotate(-2deg);
+      }
+
+      .thesis {
+        margin-top: 24px;
+        max-width: 560px;
+        margin-left: auto;
+        margin-right: auto;
+        text-align: left;
+        font-size: 0.88rem;
+        line-height: 1.8;
+        color: var(--muted);
+      }
+
+      .thesis em {
+        font-style: normal;
+        color: var(--ink);
+        font-weight: 500;
+      }
+
+      .tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        justify-content: center;
+        margin-top: 20px;
+      }
+
+      .tag {
+        padding: 4px 12px;
+        font-size: 0.7rem;
+        font-weight: 400;
+        letter-spacing: 0.06em;
+        border: 1px solid var(--rule);
+        background: var(--page-foxed);
+        color: var(--muted);
+      }
+
+      /* Section headers -- typed labels */
+      .section-label {
+        font-size: 0.72rem;
+        font-weight: 500;
+        letter-spacing: 0.26em;
+        text-transform: uppercase;
+        color: var(--muted);
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--rule);
+        margin-bottom: 18px;
+      }
+
+      h2 {
+        font-size: 0.72rem;
+        font-weight: 500;
+        letter-spacing: 0.26em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 12px;
+      }
+
+      h3 {
+        font-family: "Playfair Display", Georgia, serif;
+        font-size: 1.2rem;
+        font-weight: 400;
+        line-height: 1.4;
+      }
+
+      p {
+        font-size: 0.88rem;
+        line-height: 1.75;
+        color: var(--muted);
+      }
+
+      /* Palette -- stamp-like swatches */
+      .palette-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 8px;
+        margin-top: 14px;
+      }
+
+      .swatch {
+        min-height: 80px;
+        border: 1px solid var(--rule);
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        font-size: 0.66rem;
+        font-weight: 400;
+        line-height: 1.4;
+      }
+
+      .swatch-hex {
+        opacity: 0.6;
+        font-size: 0.6rem;
+      }
+
+      .reference-photo {
+        width: 100%;
+        display: block;
+        border: 1px solid var(--rule);
+        margin-bottom: 20px;
+      }
+
+      .photo-caption {
+        font-size: 0.78rem;
+        color: var(--muted);
+        line-height: 1.6;
+        margin-bottom: 20px;
+        font-style: italic;
+      }
+
+      /* Lobby as floor-plan description */
+      .lobby-evidence {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        margin-top: 14px;
+      }
+
+      .evidence-card {
+        background: var(--page-foxed);
+        border: 1px solid var(--rule);
+        padding: 20px;
+        position: relative;
+      }
+
+      .evidence-card::after {
+        content: "";
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--pin-shadow);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+      }
+
+      .evidence-label {
+        font-size: 0.64rem;
+        font-weight: 500;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--red-ink);
+        margin-bottom: 8px;
+      }
+
+      .evidence-card h3 {
+        font-size: 1rem;
+        margin-bottom: 6px;
+      }
+
+      .evidence-card p {
+        font-size: 0.82rem;
+      }
+
+      /* Sample UI -- as telegram / typed document */
+      .telegram {
+        margin-top: 14px;
+        background: var(--page-foxed);
+        border: 1px solid var(--rule);
+        padding: 24px;
+        position: relative;
+      }
+
+      .telegram::before {
+        content: "GRAND HOTEL INTERNAL";
+        position: absolute;
+        top: 8px;
+        right: 12px;
+        font-size: 0.58rem;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--blue-carbon);
+        opacity: 0.6;
+      }
+
+      .telegram-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding-bottom: 14px;
+        margin-bottom: 14px;
+        border-bottom: 1px dashed var(--rule);
+        font-size: 0.74rem;
+        letter-spacing: 0.06em;
+      }
+
+      .telegram-header .location {
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        font-weight: 500;
+      }
+
+      .telegram-header .status {
+        color: var(--red-ink);
+        font-weight: 500;
+      }
+
+      .telegram-scene {
+        margin-bottom: 16px;
+      }
+
+      .telegram-scene h3 {
+        margin-bottom: 6px;
+      }
+
+      .telegram-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding-top: 14px;
+        border-top: 1px dashed var(--rule);
+      }
+
+      .btn {
+        padding: 8px 16px;
+        font-family: inherit;
+        font-size: 0.76rem;
+        font-weight: 500;
+        letter-spacing: 0.04em;
+        border: 1px solid var(--ink);
+        background: transparent;
+        color: var(--ink);
+        cursor: pointer;
+      }
+
+      .btn-primary {
+        background: var(--ink);
+        color: var(--page);
+      }
+
+      /* Detail columns */
+      .detail-columns {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 24px;
+        margin-top: 14px;
+      }
+
+      .detail-columns p {
+        font-size: 0.84rem;
+      }
+
+      /* Annotation -- handwritten-style note */
+      .annotation {
+        margin-top: 28px;
+        padding: 20px 24px;
+        background: var(--stamp);
+        border-left: 3px solid var(--red-ink);
+        position: relative;
+      }
+
+      .annotation h2 {
+        color: var(--red-ink);
+        margin-bottom: 8px;
+      }
+
+      .annotation p {
+        font-size: 0.88rem;
+        color: var(--ink);
+      }
+
+      /* Best For */
+      .bestfor {
+        margin-top: 28px;
+        padding-top: 24px;
+        border-top: 2px solid var(--ink);
+      }
+
+      .bestfor p {
+        font-size: 0.92rem;
+        color: var(--ink);
+        max-width: 620px;
+      }
+
+      /* Footer stamp */
+      .file-footer {
+        margin-top: 32px;
+        text-align: center;
+        font-size: 0.64rem;
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        color: var(--muted);
+        opacity: 0.5;
+      }
+
+      @media (max-width: 700px) {
+        .document {
+          padding: 28px 24px;
+        }
+
+        .lobby-evidence,
+        .detail-columns {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="desk">
+
+      <div class="folder-tab">Case File No. 7 &mdash; Grand Hotel</div>
+
+      <!-- Title page -->
+      <div class="document">
+        <div class="hotel-header">
+          <div class="monogram">GH</div>
+          <div class="hotel-name">Grand Hotel</div>
+          <div class="hotel-sub">Est. 1889 &middot; Correspondence &amp; Registry</div>
+        </div>
+
+        <div class="dossier-title">
+          <h1>The Guest's Dossier</h1>
+          <div class="dossier-meta">
+            Compiled from hotel stationery, guest registers, staff memoranda, and private telegrams
+            <br />
+            <span class="classified">Confidential</span>
+          </div>
+          <p class="thesis">
+            The Grand Hotel experience as <em>intimate paper artifact</em>. The player is not looking at
+            a game screen -- they are handling evidence. Guest registers, telegrams, typed case notes,
+            hand-annotated maps, and hotel stationery with monograms. The lobby is not a room to photograph.
+            It is a place described through the <em>documents you hold</em>.
+          </p>
+          <div class="tags">
+            <span class="tag">Paper artifacts</span>
+            <span class="tag">Archival intimacy</span>
+            <span class="tag">Typewritten evidence</span>
+            <span class="tag">Documentary mystery</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Palette -->
+      <div class="document">
+        <div class="section-label">Palette</div>
+        <div class="palette-grid">
+          <div class="swatch" style="background: #f4efe6; color: #2c261e;">
+            Foxed Paper
+            <span class="swatch-hex">#F4EFE6</span>
+          </div>
+          <div class="swatch" style="background: #d4c5a8; color: #2c261e;">
+            Manila Folder
+            <span class="swatch-hex">#D4C5A8</span>
+          </div>
+          <div class="swatch" style="background: #3a3630; color: #f4efe6;">
+            Typewriter Ink
+            <span class="swatch-hex">#3A3630</span>
+          </div>
+          <div class="swatch" style="background: #8b3a32; color: #f4efe6;">
+            Red Annotation
+            <span class="swatch-hex">#8B3A32</span>
+          </div>
+          <div class="swatch" style="background: #4a5d73; color: #f4efe6;">
+            Carbon Blue
+            <span class="swatch-hex">#4A5D73</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lobby as evidence -->
+      <div class="document">
+        <div class="section-label">Lobby Visual Direction</div>
+        <img
+          class="reference-photo"
+          src="file:///Users/johannesantoni/.cursor/projects/Users-johannesantoni-VS-Code-MysteriesAtTheGrand/assets/guests-dossier-lobby.png"
+          alt="Grand Hotel lobby reception desk circa 1900, dark walnut paneling, guest register, key cubbies, telegrams, brass lamps, paper ephemera everywhere"
+        />
+        <p class="photo-caption">
+          The lobby as archive -- a working reception desk where every surface holds paper evidence.
+        </p>
+        <p style="margin-bottom: 16px;">
+          The lobby is not rendered as a scene. Instead, the player encounters it through artifacts:
+          a concierge's sketch, a guest register entry, a bellhop's note about Room 14, and a
+          floor plan with pencil annotations marking "irregular activity."
+        </p>
+        <div class="lobby-evidence">
+          <div class="evidence-card">
+            <div class="evidence-label">Exhibit A</div>
+            <h3>Guest Register, Page 47</h3>
+            <p>
+              Three names were entered between 9 and 10 pm on March 14th. The third signature
+              is written in a different hand than the name printed above it.
+            </p>
+          </div>
+          <div class="evidence-card">
+            <div class="evidence-label">Exhibit B</div>
+            <h3>Concierge's Memorandum</h3>
+            <p>
+              "The guest in 14 requested a second key at midnight. The first, he claimed, was
+              lost in the lobby fountain. There is no fountain in the lobby."
+            </p>
+          </div>
+          <div class="evidence-card">
+            <div class="evidence-label">Exhibit C</div>
+            <h3>Floor Plan, Ground Level</h3>
+            <p>
+              A pencil circle marks the service corridor behind the reception desk. A single
+              word in the margin: "watched."
+            </p>
+          </div>
+          <div class="evidence-card">
+            <div class="evidence-label">Exhibit D</div>
+            <h3>Telegram, Intercepted</h3>
+            <p>
+              "ARRIVING THURSDAY STOP DO NOT USE THE USUAL ROOM STOP ARRANGEMENTS CHANGED
+              STOP DESTROY AFTER READING"
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sample UI -->
+      <div class="document">
+        <div class="section-label">Sample In-Game UI</div>
+        <div class="telegram">
+          <div class="telegram-header">
+            <span class="location">Reception Hall &mdash; Evening</span>
+            <span class="status">Evidence: 03 / 08</span>
+          </div>
+          <div class="telegram-scene">
+            <h3>A hotel bill is tucked beneath the blotter on the reception desk.</h3>
+            <p>
+              The charges list two nights in Room 14, three bottles of Sauternes, and a
+              long-distance telephone call at 2:17 am. The guest's name has been struck through.
+            </p>
+          </div>
+          <div class="telegram-actions">
+            <button class="btn btn-primary">Read Full Bill</button>
+            <button class="btn">Check Room 14 Log</button>
+            <button class="btn">Cross-reference Guest List</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Details -->
+      <div class="document">
+        <div class="section-label">Details</div>
+        <div class="detail-columns">
+          <div>
+            <h2>Typography Feel</h2>
+            <p>
+              Monospaced typewriter for case notes and interface text. Elegant serif for
+              hotel stationery, letterheads, and formal names. Occasional italic for
+              handwritten annotations. The contrast between typed and handwritten creates
+              intimacy and personality.
+            </p>
+          </div>
+          <div>
+            <h2>Materials &amp; Textures</h2>
+            <p>
+              Foxed paper, carbon copies, manila folders, wax seals, postal stamps,
+              typewriter ribbon, hotel letterhead, pressed blotting paper, ruled ledger
+              lines. Every surface is a document surface.
+            </p>
+          </div>
+          <div>
+            <h2>Ornament Level</h2>
+            <p>
+              Ornament comes from the artifacts themselves: hotel monograms, embossed
+              crests, telegram borders, postal markings, and the ruled lines of a guest
+              register. No decorative UI chrome -- the documents are the decoration.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Challenge -->
+      <div class="document">
+        <div class="annotation">
+          <h2>What This Challenges</h2>
+          <p>
+            Every existing board presents the Grand Hotel as a visual environment -- a room
+            to look at, with a game UI layered on top. This board argues that the strongest
+            mystery experience might not show the hotel at all. Instead, the player holds the
+            hotel's paper trail: its registers, its telegrams, its private correspondence. The
+            interface IS the evidence. This challenges the assumption that immersion requires
+            a rendered scene, and proposes that intimacy with physical artifacts -- the feeling
+            of rifling through someone's private papers -- can be more immersive than any
+            lobby photograph.
+          </p>
+        </div>
+      </div>
+
+      <!-- Best For -->
+      <div class="document">
+        <div class="bestfor">
+          <h2>Best For</h2>
+          <p>
+            A Grand Hotel mystery that feels like opening a private case file. Best if the
+            project should prioritize narrative intimacy, textual discovery, and the pleasure
+            of reading between the lines. This direction turns every clue into a tangible
+            object and every interaction into an act of investigation rather than observation.
+            Strongest option for players who love reading, puzzles, and the feeling of holding
+            evidence in their hands.
+          </p>
+        </div>
+      </div>
+
+      <div class="file-footer">
+        End of File &middot; Grand Hotel Archives &middot; Do Not Distribute
+      </div>
+
+    </main>
+  </body>
+</html>

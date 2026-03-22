@@ -244,10 +244,11 @@ def seed_persistent_room_states(database_path: Path, seed_entries: list[dict[str
                 connection.execute(
                     """
                     UPDATE room_table
-                    SET room_description = COALESCE(room_description, ?)
+                    SET room_description = ?,
+                        room_modifications = COALESCE(room_modifications, ?)
                     WHERE id = ?
                     """,
-                    (seed_entry["room_description"], existing_room_state["id"]),
+                    (seed_entry["room_description"], seed_entry["room_modifications"], existing_room_state["id"]),
                 )
                 continue
 

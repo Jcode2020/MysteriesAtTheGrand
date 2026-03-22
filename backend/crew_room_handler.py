@@ -150,6 +150,12 @@ class CrewRoomHandler:
                 "- Prefer the stored room description as the primary truth source.\n"
                 "- If the requested action only clarifies the room truth, keep the same image and update the room description.\n"
                 "- If the request visibly changes the room, set needs_image_edit=true and produce a precise edit prompt.\n"
+                "- Treat the stored room description like a scene-layout contract. Do not invent new furniture, new support surfaces, or new architectural elements that are not already established there.\n"
+                "- If the action uses an existing surface such as a table, chair, desk, shelf, or floor area, only use a surface that is already explicitly established in the current room description.\n"
+                "- If the player references a support surface that is not clearly established in the current room description, set action_possible=false instead of improvising a plausible new surface.\n"
+                "- When an image edit is needed, the edit prompt must request the smallest possible visual change and must explicitly preserve the exact position, size, material, orientation, lighting, and surrounding furniture of the existing room.\n"
+                "- Never use wording like 'select a plausible table' or any instruction that invites the image model to redesign, replace, restage, or reinterpret existing furniture.\n"
+                "- updated_room_description must stay fully consistent with the visible scene and should mention stable spatial anchors when an object is added to an existing surface.\n"
                 "- Only consume the provided inventory item if the action is possible and the item is actually used.\n"
                 "- Keep response_text brief, natural, and no more than four short sentences.\n"
                 "- If the room does not support the action, explain that briefly and keep updated_room_description aligned with the current truth.\n"
@@ -172,7 +178,33 @@ class CrewRoomHandler:
             parsed_plan.response_text = "That room is not available yet."
             parsed_plan.updated_room_description = room_description
 
+        if parsed_plan.needs_image_edit and parsed_plan.image_edit_prompt:
+            parsed_plan.image_edit_prompt = self._stabilize_image_edit_prompt(
+                current_room_name=current_room_name,
+                room_description=room_description,
+                original_prompt=parsed_plan.image_edit_prompt,
+            )
+
         return parsed_plan.model_dump()
+
+    def _stabilize_image_edit_prompt(
+        self,
+        *,
+        current_room_name: str,
+        room_description: str,
+        original_prompt: str,
+    ) -> str:
+        """Wrap the planner prompt in deterministic preservation constraints."""
+        return (
+            f"Reference room: {current_room_name}.\n"
+            "Use the provided reference image as a locked composition and perform only the smallest local edit needed.\n"
+            "Preserve the exact camera angle, framing, composition, architecture, floor pattern, lighting, shadows, materials, and all existing furniture.\n"
+            "Do not move, resize, replace, redesign, restage, regenerate, or reinterpret any existing table, chair, desk, sofa, rug, plant, staircase, wall, or decorative object.\n"
+            "Do not invent a new plausible support surface. Only use a support surface that is already present in both the reference image and the room description.\n"
+            "If placing an item onto a table or surface, keep that existing table or surface completely unchanged and add only the portable item on top of it.\n"
+            f"Current room description: {room_description}\n"
+            f"Requested change: {original_prompt}"
+        )
 
     def _edit_room_image(
         self,

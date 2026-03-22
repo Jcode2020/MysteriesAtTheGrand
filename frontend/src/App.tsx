@@ -58,6 +58,11 @@ type ParsedSseEvent = {
   payload: Record<string, unknown>;
 };
 
+type ReceptionistSpeechRequestPayload = {
+  speaker_id: "receptionist";
+  text: string;
+};
+
 function getBackendBaseUrl(): string {
   const configuredBackendUrl = import.meta.env.VITE_BACKEND_URL?.trim();
   if (configuredBackendUrl) {
@@ -136,6 +141,8 @@ function App() {
     return window.sessionStorage.getItem(CONSENT_ACCEPTED_STORAGE_KEY) === "true";
   });
   const [isAudioMuted, setIsAudioMuted] = useState(true);
+  const [isIntroSpeechActive, setIsIntroSpeechActive] = useState(false);
+  const [isReceptionistSpeechActive, setIsReceptionistSpeechActive] = useState(false);
   const [isStartNoticeOpen, setIsStartNoticeOpen] = useState(false);
   const [isIntroModalOpen, setIsIntroModalOpen] = useState(false);
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
@@ -158,11 +165,16 @@ function App() {
   const [chatError, setChatError] = useState<string | null>(null);
   const [isStreamingChat, setIsStreamingChat] = useState(false);
   const activeChatRequestRef = useRef<AbortController | null>(null);
+  const receptionistSpeechAudioRef = useRef<HTMLAudioElement | null>(null);
+  const receptionistSpeechRequestRef = useRef<AbortController | null>(null);
+  const receptionistSpeechObjectUrlRef = useRef<string | null>(null);
+  const lastSpokenReceptionistMessageIdRef = useRef<string | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const backendBaseUrl = getBackendBaseUrl();
   const openingThemeUrl = `${backendBaseUrl}/audio/opening-theme`;
   const introAudioUrl = `${backendBaseUrl}/audio/intro`;
-  const openingThemeVolume = isIntroModalOpen && !isAudioMuted ? 0.3 : 1;
+  const speechIsActive = !isAudioMuted && (isIntroSpeechActive || isReceptionistSpeechActive);
+  const openingThemeVolume = speechIsActive ? 0.3 : 1;
 
   const syncSessionId = useCallback((response: Response, fallbackSessionId?: string | null): void => {
     const headerSessionId = response.headers.get(SESSION_HEADER_NAME)?.trim();
@@ -352,8 +364,93 @@ function App() {
   useEffect(() => {
     return () => {
       activeChatRequestRef.current?.abort();
+      receptionistSpeechRequestRef.current?.abort();
+      receptionistSpeechAudioRef.current?.pause();
+      if (receptionistSpeechObjectUrlRef.current) {
+        URL.revokeObjectURL(receptionistSpeechObjectUrlRef.current);
+        receptionistSpeechObjectUrlRef.current = null;
+      }
     };
   }, []);
+
+  useEffect(() => {
+    if (!isAudioMuted) {
+      return;
+    }
+    receptionistSpeechRequestRef.current?.abort();
+    receptionistSpeechRequestRef.current = null;
+    receptionistSpeechAudioRef.current?.pause();
+    setIsReceptionistSpeechActive(false);
+  }, [isAudioMuted]);
+
+  const playReceptionistSpeech = useCallback(
+    async (messageId: string, text: string): Promise<void> => {
+      if (lastSpokenReceptionistMessageIdRef.current === messageId || isAudioMuted) {
+        return;
+      }
+      lastSpokenReceptionistMessageIdRef.current = messageId;
+
+      receptionistSpeechRequestRef.current?.abort();
+      receptionistSpeechRequestRef.current = null;
+
+      const audioElement = receptionistSpeechAudioRef.current;
+      if (audioElement) {
+        audioElement.pause();
+        audioElement.currentTime = 0;
+      }
+      if (receptionistSpeechObjectUrlRef.current) {
+        URL.revokeObjectURL(receptionistSpeechObjectUrlRef.current);
+        receptionistSpeechObjectUrlRef.current = null;
+      }
+      setIsReceptionistSpeechActive(false);
+
+      const controller = new AbortController();
+      receptionistSpeechRequestRef.current = controller;
+
+      try {
+        const payload: ReceptionistSpeechRequestPayload = {
+          speaker_id: "receptionist",
+          text,
+        };
+        const response = await fetch(`${backendBaseUrl}/audio/receptionist-line`, {
+          method: "POST",
+          credentials: "include",
+          headers: buildSessionHeaders({
+            "Content-Type": "application/json",
+          }),
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Receptionist speech request failed: ${response.status}`);
+        }
+
+        const audioBlob = await response.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+        receptionistSpeechObjectUrlRef.current = audioUrl;
+
+        if (!audioElement || isAudioMuted) {
+          return;
+        }
+
+        audioElement.src = audioUrl;
+        setIsReceptionistSpeechActive(true);
+        await audioElement.play();
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+        console.warn("Receptionist speech playback was unavailable.", error);
+        setIsReceptionistSpeechActive(false);
+      } finally {
+        if (receptionistSpeechRequestRef.current === controller) {
+          receptionistSpeechRequestRef.current = null;
+        }
+      }
+    },
+    [backendBaseUrl, buildSessionHeaders, isAudioMuted],
+  );
 
   const handleSendChatMessage = useCallback(
     async (message: string): Promise<void> => {
@@ -476,6 +573,13 @@ function App() {
                     : chatMessage,
                 ),
               );
+              if (
+                assistantMessageId &&
+                typeof parsedEvent.payload.speaker_id === "string" &&
+                parsedEvent.payload.speaker_id === "receptionist"
+              ) {
+                void playReceptionistSpeech(assistantMessageId, parsedEvent.payload.content);
+              }
             }
 
             if (parsedEvent.eventName === "error") {
@@ -518,6 +622,21 @@ function App() {
     <>
       <OpeningAudioPlayer audioUrl={openingThemeUrl} isMuted={isAudioMuted} volume={openingThemeVolume} />
       <AudioToggleButton isMuted={isAudioMuted} onToggle={() => setIsAudioMuted((currentValue) => !currentValue)} />
+      <audio
+        ref={receptionistSpeechAudioRef}
+        preload="auto"
+        className="hidden"
+        aria-hidden="true"
+        onPlay={() => setIsReceptionistSpeechActive(true)}
+        onPause={() => setIsReceptionistSpeechActive(false)}
+        onEnded={() => {
+          setIsReceptionistSpeechActive(false);
+          if (receptionistSpeechObjectUrlRef.current) {
+            URL.revokeObjectURL(receptionistSpeechObjectUrlRef.current);
+            receptionistSpeechObjectUrlRef.current = null;
+          }
+        }}
+      />
 
       {hasStarted ? (
         <GameShell
@@ -564,6 +683,7 @@ function App() {
           hasConsented={hasConsented}
           introAudioUrl={introAudioUrl}
           isAudioMuted={isAudioMuted}
+          onIntroSpeechStateChange={setIsIntroSpeechActive}
           onConsentChange={setHasConsented}
           onCloseNotice={() => {
             setIsStartNoticeOpen(false);

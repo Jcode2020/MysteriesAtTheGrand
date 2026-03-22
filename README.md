@@ -33,6 +33,7 @@
 - For production, set `FRONTEND_ORIGIN` to the exact public frontend URL so the backend only accepts browser writes from that origin.
 - `SESSION_COOKIE_SECURE=true` is required for HTTPS deployments. When `FRONTEND_ORIGIN` points to a non-localhost production frontend and the cookie env vars are left empty, the backend now defaults to `SESSION_COOKIE_SECURE=true` and `SESSION_COOKIE_SAMESITE=None` so browser session state survives cross-origin API requests.
 - Set `OPENAI_API_KEY` for the CrewAI/OpenAI backend integration.
+- Set `ELEVENLABS_API_KEY` and `ELEVENLABS_VOICE_ID_RECEPTIONIST` on the backend if you want receptionist voice playback through ElevenLabs.
 - `OPENAI_CREW_MODEL` controls the text model used by the coordinator and handler agents.
 - `OPENAI_IMAGE_MODEL` controls the image-edit model used when a room image must change visibly.
 
@@ -77,6 +78,7 @@
 - `GET /session/state` returns the current anonymous session row, including the active room name.
 - `GET /inventory` returns the current anonymous session suitcase inventory, including base64 image data for each item.
 - `POST /chat/stream` accepts a JSON body with `message` and returns an SSE-style `text/event-stream` response from the CrewAI coordinator.
+- `POST /audio/receptionist-line` accepts one receptionist text line and returns generated receptionist speech from the backend ElevenLabs proxy when configured.
 - Chat stream events now include `speaker_id` and `speaker_label` so the frontend can keep one shared transcript while rendering dedicated NPC bubbles such as `Receptionist`.
 - NPC chat stream events may also include portrait metadata so the frontend can render the receptionist headshot directly inside the bubble.
 - `GET /legal/privacy-notice` returns the plain-language prototype privacy notice shown on the start screen.
@@ -87,6 +89,7 @@
 - Conversational NPC implementations live in `backend/npcs/`.
 - The first NPC is the lobby receptionist, who can appear seamlessly in the existing chat window while still using dedicated speaker labels in the transcript.
 - The receptionist portrait is seeded from a cropped image derived from the lobby seed image and rendered in receptionist chat bubbles.
+- When ElevenLabs backend env vars are configured, newly completed receptionist bubbles can also trigger one-off voice playback while the opening theme ducks through the shared speech state.
 - NPC availability can depend on deterministic game state. The receptionist currently only answers while the player is in the `lobby`.
 - Deterministic NPC events are tracked in the database and can influence later LLM-driven dialogue decisions.
 

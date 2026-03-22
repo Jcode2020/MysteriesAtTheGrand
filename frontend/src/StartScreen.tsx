@@ -8,6 +8,7 @@ type StartScreenProps = {
   hasConsented: boolean;
   introAudioUrl: string | null;
   isAudioMuted: boolean;
+  onIntroSpeechStateChange: (isActive: boolean) => void;
   onConsentChange: (hasConsented: boolean) => void;
   onCloseNotice: () => void;
   onCloseIntro: () => void;
@@ -33,6 +34,7 @@ function StartScreen({
   hasConsented,
   introAudioUrl,
   isAudioMuted,
+  onIntroSpeechStateChange,
   onConsentChange,
   onCloseNotice,
   onCloseIntro,
@@ -55,6 +57,7 @@ function StartScreen({
       }
       audioElement.pause();
       audioElement.currentTime = 0;
+      onIntroSpeechStateChange(false);
       return;
     }
 
@@ -64,6 +67,7 @@ function StartScreen({
         introStartTimeoutRef.current = null;
       }
       audioElement.pause();
+      onIntroSpeechStateChange(false);
       return;
     }
 
@@ -83,7 +87,7 @@ function StartScreen({
         introStartTimeoutRef.current = null;
       }
     };
-  }, [introAudioUrl, isAudioMuted, isIntroOpen]);
+  }, [introAudioUrl, isAudioMuted, isIntroOpen, onIntroSpeechStateChange]);
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#120d0a] text-parchment">
@@ -155,7 +159,16 @@ function StartScreen({
                 ),
               )}
             </div>
-            <audio ref={introAudioRef} src={introAudioUrl ?? undefined} preload="auto" aria-hidden="true" className="hidden" />
+            <audio
+              ref={introAudioRef}
+              src={introAudioUrl ?? undefined}
+              preload="auto"
+              aria-hidden="true"
+              className="hidden"
+              onPlay={() => onIntroSpeechStateChange(true)}
+              onPause={() => onIntroSpeechStateChange(false)}
+              onEnded={() => onIntroSpeechStateChange(false)}
+            />
             <div className="mt-6 flex justify-end border-t border-[rgba(45,29,22,0.12)] pt-5">
               <button
                 type="button"

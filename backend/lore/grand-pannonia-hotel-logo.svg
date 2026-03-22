@@ -1,0 +1,32 @@
+<svg width="1200" height="1200" viewBox="0 0 1200 1200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <title>Grand Pannonia Hotel Emblem</title>
+  <desc>Single emblem logo for the Grand Pannonia Hotel with a recognizable antique key and all text contained inside the plaque.</desc>
+  <defs>
+    <linearGradient id="plaqueFill" x1="600" y1="170" x2="600" y2="1030" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FCF6EE"/>
+      <stop offset="1" stop-color="#E9D8C0"/>
+    </linearGradient>
+  </defs>
+
+  <path d="M600 120C791.642 120 947 275.358 947 467V734C947 924.484 791.642 1080 600 1080C408.358 1080 253 924.484 253 734V467C253 275.358 408.358 120 600 120Z" fill="url(#plaqueFill)"/>
+  <path d="M600 120C791.642 120 947 275.358 947 467V734C947 924.484 791.642 1080 600 1080C408.358 1080 253 924.484 253 734V467C253 275.358 408.358 120 600 120Z" stroke="#B08A3E" stroke-width="8"/>
+  <path d="M600 149C775.629 149 918 291.371 918 467V734C918 908.471 775.629 1051 600 1051C424.371 1051 282 908.471 282 734V467C282 291.371 424.371 149 600 149Z" stroke="#6F2430" stroke-opacity="0.22" stroke-width="3"/>
+
+  <g>
+    <path
+      fill-rule="evenodd"
+      clip-rule="evenodd"
+      d="M600 226C642.526 226 677 260.474 677 303C677 345.526 642.526 380 600 380C557.474 380 523 345.526 523 303C523 260.474 557.474 226 600 226ZM600 258C624.853 258 645 278.147 645 303C645 327.853 624.853 348 600 348C575.147 348 555 327.853 555 303C555 278.147 575.147 258 600 258ZM594 380H606V548H594V380ZM580 392H620V408H580V392ZM584 420H616V434H584V420ZM594 548H652V568H690V592H664V630H640V604H620V622H594V548ZM620 568H638V586H620V568ZM652 592H664V604H652V592Z"
+      fill="#B08A3E"
+    />
+    <path d="M559 271C550 278 544 288 542 299" stroke="#8A5B24" stroke-width="3" stroke-linecap="round"/>
+    <path d="M641 271C650 278 656 288 658 299" stroke="#8A5B24" stroke-width="3" stroke-linecap="round"/>
+    <path d="M594 380H606V548H594V380Z" stroke="#8A5B24" stroke-width="2"/>
+    <path d="M594 548H652V568H690V592H664V630H640V604H620V622H594V548Z" stroke="#8A5B24" stroke-width="3"/>
+  </g>
+  <path d="M442 690H758" stroke="#B08A3E" stroke-width="2"/>
+
+  <text x="600" y="812" text-anchor="middle" fill="#2D1D16" font-family="'Playfair Display', Baskerville, Georgia, serif" font-size="78" letter-spacing="5">GRAND</text>
+  <text x="600" y="892" text-anchor="middle" fill="#2D1D16" font-family="'Playfair Display', Baskerville, Georgia, serif" font-size="78" letter-spacing="5">PANNONIA</text>
+  <text x="600" y="960" text-anchor="middle" fill="#6F584B" font-family="'IBM Plex Mono', 'Courier New', monospace" font-size="28" letter-spacing="12">HOTEL</text>
+</svg>

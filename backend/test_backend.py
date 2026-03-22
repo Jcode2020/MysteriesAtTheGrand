@@ -216,6 +216,36 @@ class BackendApiTests(unittest.TestCase):
         self.assertEqual(response.mimetype, "audio/mpeg")
         self.assertEqual(response.data, INTRO_AUDIO_BYTES)
 
+    @patch("backend.synthesize_receptionist_speech")
+    def test_receptionist_audio_endpoint_streams_generated_audio(self, mock_synthesize_receptionist_speech: Any) -> None:
+        self.client.get("/session/state")
+        mock_synthesize_receptionist_speech.return_value = (b"ID3receptionist-line", "audio/mpeg")
+
+        response = self.client.post(
+            "/audio/receptionist-line",
+            json={"speaker_id": "receptionist", "text": "Welcome back to the Grand Pannonia."},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.mimetype, "audio/mpeg")
+        self.assertEqual(response.data, b"ID3receptionist-line")
+        mock_synthesize_receptionist_speech.assert_called_once_with("Welcome back to the Grand Pannonia.")
+
+    def test_receptionist_audio_endpoint_rejects_invalid_requests(self) -> None:
+        self.client.get("/session/state")
+
+        wrong_speaker_response = self.client.post(
+            "/audio/receptionist-line",
+            json={"speaker_id": "hotel_world", "text": "Welcome back."},
+        )
+        self.assertEqual(wrong_speaker_response.status_code, 400)
+
+        empty_text_response = self.client.post(
+            "/audio/receptionist-line",
+            json={"speaker_id": "receptionist", "text": "   "},
+        )
+        self.assertEqual(empty_text_response.status_code, 400)
+
     def test_privacy_notice_streams_markdown(self) -> None:
         response = self.client.get("/legal/privacy-notice")
 

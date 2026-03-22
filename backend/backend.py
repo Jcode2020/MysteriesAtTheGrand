@@ -22,6 +22,7 @@ from db_handlers import (
     validate_room_state_payload,
     create_room_state as insert_room_state,
 )
+from elevenlabs_tts import synthesize_receptionist_speech
 
 BACKEND_DIR = Path(__file__).resolve().parent
 REPO_ROOT_DIR = BACKEND_DIR.parent
@@ -453,6 +454,7 @@ def create_app(
     @app.route("/session/state", methods=["OPTIONS"])
     @app.route("/inventory", methods=["OPTIONS"])
     @app.route("/chat/stream", methods=["OPTIONS"])
+    @app.route("/audio/receptionist-line", methods=["OPTIONS"])
     @app.route("/legal/privacy-notice", methods=["OPTIONS"])
     @app.route("/rooms/<string:room_name>/latest", methods=["OPTIONS"])
     @app.route("/rooms/<string:room_name>/states", methods=["OPTIONS"])
@@ -546,6 +548,44 @@ def create_app(
             conditional=True,
             download_name=audio_path.name,
         )
+
+    @app.post("/audio/receptionist-line")
+    def get_receptionist_line_audio() -> Response | tuple[object, int]:
+        """Generate one receptionist voice line through the backend ElevenLabs proxy."""
+        session_id = _ensure_runtime_session(app)
+        if not _request_origin_is_allowed(app.config["FRONTEND_ORIGIN"]):
+            logger.warning("Rejected receptionist audio request from unexpected origin: %s", request.headers.get("Origin"))
+            response = jsonify({"error": "Request origin is not allowed."})
+            return _attach_session_cookie(response, session_id, app), 403
+
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            response = jsonify({"error": "Request body must be valid JSON."})
+            return _attach_session_cookie(response, session_id, app), 400
+
+        speaker_id = payload.get("speaker_id")
+        line_text = payload.get("text")
+        if speaker_id != "receptionist":
+            response = jsonify({"error": "speaker_id must be 'receptionist'."})
+            return _attach_session_cookie(response, session_id, app), 400
+        if not isinstance(line_text, str) or not line_text.strip():
+            response = jsonify({"error": "text is required and must be a non-empty string."})
+            return _attach_session_cookie(response, session_id, app), 400
+        if len(line_text.strip()) > 500:
+            response = jsonify({"error": "text must be 500 characters or fewer."})
+            return _attach_session_cookie(response, session_id, app), 400
+
+        try:
+            audio_bytes, media_type = synthesize_receptionist_speech(line_text)
+        except (RuntimeError, ValueError) as error:
+            logger.warning("Receptionist speech generation failed for session %s: %s", session_id, error)
+            response = jsonify({"error": "Receptionist speech is not available right now."})
+            return _attach_session_cookie(response, session_id, app), 502
+
+        response = Response(audio_bytes, mimetype=media_type)
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Content-Length"] = str(len(audio_bytes))
+        return _attach_session_cookie(response, session_id, app)
 
     @app.get("/legal/privacy-notice")
     def get_privacy_notice() -> Response | tuple[object, int]:

@@ -41,6 +41,8 @@ class CrewInventoryHandler:
                 return item
             if normalized_reference and any(normalized_reference in token for token in searchable_tokens):
                 return item
+            if normalized_reference and any(token and token in normalized_reference for token in searchable_tokens):
+                return item
         return None
 
     def _resolve_item_with_agent(self, inventory_items: list[dict[str, Any]], item_reference: str) -> str | None:
@@ -57,31 +59,34 @@ class CrewInventoryHandler:
                 description="The matching item_key when the user references an item that exists in the inventory.",
             )
 
-        agent = Agent(
-            role="Inventory Handler",
-            goal="Match the player's item reference to one inventory item when a clear match exists.",
-            backstory=(
-                "You manage the guest's suitcase inventory and must only return an item key when the match is "
-                "clearly supported by the available items."
-            ),
-            llm=LLM(**build_crewai_llm_kwargs()),
-            verbose=False,
-            cache=True,
-        )
+        try:
+            agent = Agent(
+                role="Inventory Handler",
+                goal="Match the player's item reference to one inventory item when a clear match exists.",
+                backstory=(
+                    "You manage the guest's suitcase inventory and must only return an item key when the match is "
+                    "clearly supported by the available items."
+                ),
+                llm=LLM(**build_crewai_llm_kwargs()),
+                verbose=False,
+                cache=True,
+            )
 
-        options_text = "\n".join(
-            f"- {item['item_key']}: {item['item_name']} ({item['item_detail']})" for item in inventory_items
-        )
-        result = agent.kickoff(
-            (
-                "Choose the best matching inventory item key for the player's reference.\n"
-                f"Player reference: {item_reference}\n"
-                "Available items:\n"
-                f"{options_text}\n"
-                "Return null when no item clearly matches."
-            ),
-            response_format=InventoryChoice,
-        )
+            options_text = "\n".join(
+                f"- {item['item_key']}: {item['item_name']} ({item['item_detail']})" for item in inventory_items
+            )
+            result = agent.kickoff(
+                (
+                    "Choose the best matching inventory item key for the player's reference.\n"
+                    f"Player reference: {item_reference}\n"
+                    "Available items:\n"
+                    f"{options_text}\n"
+                    "Return null when no item clearly matches."
+                ),
+                response_format=InventoryChoice,
+            )
+        except Exception:
+            return None
 
         parsed_choice = getattr(result, "pydantic", None)
         if parsed_choice is None:

@@ -45,11 +45,55 @@ CREATE TABLE IF NOT EXISTS inventory_table (
 CREATE INDEX IF NOT EXISTS idx_inventory_table_session_id_item_key
 ON inventory_table (session_id, item_key);
 
-CREATE TABLE IF NOT EXISTS crew_convos (
-  session_id TEXT PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS npc_registry (
+  npc_id TEXT PRIMARY KEY,
+  npc_label TEXT NOT NULL,
+  portrait_image BLOB NOT NULL,
+  image_media_type TEXT NOT NULL DEFAULT 'image/png',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS conversation_threads (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id TEXT NOT NULL,
+  speaker_id TEXT NOT NULL,
+  speaker_label TEXT NOT NULL,
   openai_conversation_id TEXT,
   latest_response_id TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  FOREIGN KEY (session_id) REFERENCES session_state(session_id) ON DELETE CASCADE
+  FOREIGN KEY (session_id) REFERENCES session_state(session_id) ON DELETE CASCADE,
+  UNIQUE(session_id, speaker_id)
 );
+
+CREATE INDEX IF NOT EXISTS idx_conversation_threads_session_id_speaker_id
+ON conversation_threads (session_id, speaker_id);
+
+CREATE TABLE IF NOT EXISTS conversation_messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  thread_id INTEGER NOT NULL,
+  role TEXT NOT NULL,
+  speaker_label TEXT,
+  content TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (thread_id) REFERENCES conversation_threads(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_conversation_messages_thread_id_id
+ON conversation_messages (thread_id, id);
+
+CREATE TABLE IF NOT EXISTS deterministic_rule_state (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id TEXT NOT NULL,
+  npc_id TEXT NOT NULL,
+  rule_key TEXT NOT NULL,
+  rule_value TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (session_id) REFERENCES session_state(session_id) ON DELETE CASCADE,
+  UNIQUE(session_id, npc_id, rule_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_deterministic_rule_state_session_npc_rule
+ON deterministic_rule_state (session_id, npc_id, rule_key);

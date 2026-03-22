@@ -17,6 +17,7 @@ from db_handlers import (
     list_room_states as fetch_room_states,
     load_seed_manifest,
     reset_session_progress as clear_session_progress,
+    seed_npc_registry,
     seed_persistent_room_states,
     validate_room_state_payload,
     create_room_state as insert_room_state,
@@ -304,21 +305,23 @@ def _ensure_session_id() -> str:
         return generated_session_id
 
     header_session_id = _resolve_header_session_id()
+    existing_session_id = request.cookies.get(SESSION_COOKIE_NAME)
+    selected_session_id: str
     if header_session_id:
         g.session_id = header_session_id
         g.should_set_session_cookie = False
-        return header_session_id
-
-    existing_session_id = request.cookies.get(SESSION_COOKIE_NAME)
-    if existing_session_id:
+        selected_session_id = header_session_id
+    elif existing_session_id:
         g.session_id = existing_session_id
         g.should_set_session_cookie = False
-        return existing_session_id
+        selected_session_id = existing_session_id
+    else:
+        new_session_id = _generate_session_id()
+        g.should_set_session_cookie = True
+        g.session_id = new_session_id
+        selected_session_id = new_session_id
 
-    new_session_id = _generate_session_id()
-    g.should_set_session_cookie = True
-    g.session_id = new_session_id
-    return new_session_id
+    return selected_session_id
 
 
 def _attach_session_cookie(response: Response, session_id: str, app: Flask) -> Response:
@@ -400,12 +403,14 @@ def create_app(
     app.config["PERSISTENT_ROOM_SEED_MANIFEST_PATH"] = resolved_seed_manifest_path
     app.config["PERSISTENT_ROOM_SEED_ENTRIES"] = seed_manifest["persistent_rooms"]
     app.config["STARTER_INVENTORY_SEED_ENTRIES"] = seed_manifest["starter_inventory"]
+    app.config["NPC_REGISTRY_SEED_ENTRIES"] = seed_manifest["npc_entries"]
 
     if app.config["SESSION_COOKIE_SAMESITE"] == "None" and not app.config["SESSION_COOKIE_SECURE"]:
         raise ValueError("SESSION_COOKIE_SAMESITE=None requires SESSION_COOKIE_SECURE=true")
 
     initialize_database(resolved_database_path, resolved_schema_path)
     seed_persistent_room_states(resolved_database_path, app.config["PERSISTENT_ROOM_SEED_ENTRIES"])
+    seed_npc_registry(resolved_database_path, app.config["NPC_REGISTRY_SEED_ENTRIES"])
     logger.info("Initialized room state database at %s", resolved_database_path)
     if configured_log_file_path is not None:
         logger.info("Backend logging also writes to %s", configured_log_file_path)

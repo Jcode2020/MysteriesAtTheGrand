@@ -11,8 +11,7 @@ declare const __APP_BACKEND_PORT__: string;
 const HAS_STARTED_STORAGE_KEY = "grand-pannonia-has-started";
 const CONSENT_ACCEPTED_STORAGE_KEY = "grand-pannonia-prototype-consent";
 const SESSION_HEADER_NAME = "X-Grand-Pannonia-Session-Id";
-const INITIAL_ASSISTANT_MESSAGE =
-  "Welcome to the Grand Pannonia Hotel. Tell me what you would like to do, and I will keep it brief.";
+const INITIAL_ASSISTANT_MESSAGE = "Interact with the entire world just by chatting with me";
 
 type RoomStateResponse = {
   room_description?: string | null;
@@ -49,6 +48,9 @@ type ChatMessage = {
   content: string;
   id: string;
   role: "assistant" | "user";
+  speakerId?: string;
+  speakerLabel?: string;
+  speakerPortraitSrc?: string;
 };
 
 type ParsedSseEvent = {
@@ -72,7 +74,15 @@ function getBackendBaseUrl(): string {
 }
 
 function createInitialMessages(): ChatMessage[] {
-  return [{ id: "assistant-welcome", role: "assistant", content: INITIAL_ASSISTANT_MESSAGE }];
+  return [
+    {
+      id: "assistant-welcome",
+      role: "assistant",
+      content: INITIAL_ASSISTANT_MESSAGE,
+      speakerId: "hotel_world",
+      speakerLabel: "Grand Pannonia Hotel",
+    },
+  ];
 }
 
 function parseSseEvent(rawEvent: string): ParsedSseEvent | null {
@@ -98,6 +108,16 @@ function parseSseEvent(rawEvent: string): ParsedSseEvent | null {
     eventName,
     payload: JSON.parse(dataLines.join("\n")) as Record<string, unknown>,
   };
+}
+
+function buildSpeakerPortraitSrc(payload: Record<string, unknown>, fallbackSrc?: string): string | undefined {
+  const portraitBase64 =
+    typeof payload.speaker_portrait_base64 === "string" ? payload.speaker_portrait_base64 : undefined;
+  const mediaType = typeof payload.speaker_image_media_type === "string" ? payload.speaker_image_media_type : undefined;
+  if (portraitBase64 && mediaType) {
+    return `data:${mediaType};base64,${portraitBase64}`;
+  }
+  return fallbackSrc;
 }
 
 function App() {
@@ -349,8 +369,14 @@ function App() {
       setIsStreamingChat(true);
       setChatMessages((currentMessages) => [
         ...currentMessages,
-        { id: userMessageId, role: "user", content: trimmedMessage },
-        { id: assistantMessageId, role: "assistant", content: "" },
+        { id: userMessageId, role: "user", content: trimmedMessage, speakerLabel: "Guest" },
+        {
+          id: assistantMessageId,
+          role: "assistant",
+          content: "",
+          speakerId: "hotel_world",
+          speakerLabel: "Grand Pannonia Hotel",
+        },
       ]);
 
       const controller = new AbortController();
@@ -412,7 +438,19 @@ function App() {
               setChatMessages((currentMessages) =>
                 currentMessages.map((chatMessage) =>
                   chatMessage.id === assistantMessageId
-                    ? { ...chatMessage, content: chatMessage.content + parsedEvent.payload.content }
+                    ? {
+                        ...chatMessage,
+                        content: chatMessage.content + parsedEvent.payload.content,
+                        speakerId:
+                          typeof parsedEvent.payload.speaker_id === "string"
+                            ? parsedEvent.payload.speaker_id
+                            : chatMessage.speakerId,
+                        speakerLabel:
+                          typeof parsedEvent.payload.speaker_label === "string"
+                            ? parsedEvent.payload.speaker_label
+                            : chatMessage.speakerLabel,
+                        speakerPortraitSrc: buildSpeakerPortraitSrc(parsedEvent.payload, chatMessage.speakerPortraitSrc),
+                      }
                     : chatMessage,
                 ),
               );
@@ -421,8 +459,20 @@ function App() {
             if (parsedEvent.eventName === "complete" && typeof parsedEvent.payload.content === "string") {
               setChatMessages((currentMessages) =>
                 currentMessages.map((chatMessage) =>
-                  chatMessage.id === assistantMessageId && chatMessage.content.length === 0
-                    ? { ...chatMessage, content: parsedEvent.payload.content }
+                  chatMessage.id === assistantMessageId
+                    ? {
+                        ...chatMessage,
+                        content: chatMessage.content.length === 0 ? parsedEvent.payload.content : chatMessage.content,
+                        speakerId:
+                          typeof parsedEvent.payload.speaker_id === "string"
+                            ? parsedEvent.payload.speaker_id
+                            : chatMessage.speakerId,
+                        speakerLabel:
+                          typeof parsedEvent.payload.speaker_label === "string"
+                            ? parsedEvent.payload.speaker_label
+                            : chatMessage.speakerLabel,
+                        speakerPortraitSrc: buildSpeakerPortraitSrc(parsedEvent.payload, chatMessage.speakerPortraitSrc),
+                      }
                     : chatMessage,
                 ),
               );
@@ -432,7 +482,7 @@ function App() {
               const streamMessage =
                 typeof parsedEvent.payload.message === "string"
                   ? parsedEvent.payload.message
-                  : "The concierge could not complete that request.";
+                  : "Grand Pannonia Hotel could not complete that request.";
               throw new Error(streamMessage);
             }
           }
@@ -445,7 +495,7 @@ function App() {
       } catch (error) {
         console.error("Could not complete the chat request.", error);
         const fallbackMessage =
-          error instanceof Error ? error.message : "The concierge could not complete that request.";
+          error instanceof Error ? error.message : "Grand Pannonia Hotel could not complete that request.";
         setChatError(fallbackMessage);
         setChatMessages((currentMessages) =>
           currentMessages.map((chatMessage) =>

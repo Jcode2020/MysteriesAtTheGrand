@@ -1,4 +1,4 @@
-Grand Hotel Pannonia is a new gaming experience based on highly customizable immersion
+A new immersive and highly customizable gaming experience
 
 
 Consumers are shifting focus form exclusive goods towards experiences and this is especially true for the hospitality industry
